@@ -1,0 +1,8 @@
+# Looks for "ing" in first word of all heading text 
+extends: existence
+message: "Do not start headings with 'ing' words. Use imperative verbs such as 'create' and 'configure' instead."
+ignorecase: true
+level: error
+scope: heading
+tokens:
+  - '^(?:\S*)(ing)'

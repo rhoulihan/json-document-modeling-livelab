@@ -1,0 +1,10 @@
+extends: existence
+message: "Always include alt text for inline images."
+level: error
+ignorecase: true
+scope: raw
+raw:
+# Matches empty alt text tags for inline images.
+
+  - '\!\[(\s*)\]\((\S)+.(\W+)\).'
+

@@ -1,0 +1,43 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Node modules (if we add any tooling)
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# Generated files
+*.pdf
+*.zip
+
+# Keep empty directories
+!data/.gitkeep
+!images/.gitkeep
+!labs/.gitkeep
+!scripts/.gitkeep
+!workshops/.gitkeep

@@ -21,7 +21,7 @@ In this lab, you will:
 
 This lab assumes you have:
 
-* An Oracle Cloud account (for ADB Free Tier option) **OR**
+* An Oracle Cloud account (for Autonomous Database Free Tier option) **OR**
 * Docker Desktop installed (for 23ai Free option)
 * A web browser (Chrome, Firefox, or Edge recommended)
 * Internet connection
@@ -141,7 +141,7 @@ You have two options for this workshop. Choose the one that best fits your needs
 
 ## Task 2B: Setup Oracle Database 23ai Free with Docker
 
-> **Note:** If you chose Option A (ADB Free Tier), skip to Task 3.
+> **Note:** If you chose Option A (Autonomous Database Free Tier), skip to Task 3.
 
 ### Step 1: Verify Docker Installation
 
@@ -243,11 +243,11 @@ You have two options for this workshop. Choose the one that best fits your needs
 
 ## Task 3: Create Workshop User and Enable JSON Collections
 
-Both ADB Free Tier and 23ai Free users continue from here.
+Both Autonomous Database Free Tier and 23ai Free users continue with this task.
 
 ### Step 1: Create Workshop User
 
-1. In your SQL worksheet (Database Actions for ADB, or SQL*Plus for 23ai), create a new user:
+1. In your SQL worksheet (Database Actions for Autonomous Database, or SQL*Plus for 23ai), create a new user:
 
    ```sql
    -- Create workshop user
@@ -282,7 +282,7 @@ Both ADB Free Tier and 23ai Free users continue from here.
 
 ### Step 2: Connect as JSONUSER
 
-1. **For ADB Free Tier users:**
+1. **For Autonomous Database Free Tier users:**
    - Sign out from Database Actions (click user icon → Sign Out)
    - Sign back in with:
      - **Username:** `JSONUSER`
@@ -518,7 +518,7 @@ cd json-document-modeling-livelab/scripts
 
 4. Navigate to the `scripts/` directory
 
-### Using the Scripts
+### Use the Scripts
 
 Throughout the workshop, you will find references to scripts like:
 
@@ -534,8 +534,8 @@ You can either:
 
 Before proceeding to Lab 1, verify you have completed:
 
-- [ ] Oracle Database provisioned (ADB Free Tier OR 23ai Free)
-- [ ] Connected to database via SQL interface
+- [ ] Oracle Database provisioned (Autonomous Database Free Tier OR 23ai Free)
+- [ ] Connected to database using SQL interface
 - [ ] Created JSONUSER with proper privileges
 - [ ] Created first JSON collection (test_collection)
 - [ ] Inserted and queried test document
@@ -545,7 +545,7 @@ Before proceeding to Lab 1, verify you have completed:
 
 If you checked all items, you are ready to proceed to **Lab 1: JSON Collections Fundamentals**!
 
-## Troubleshooting
+## Troubleshoot Issues
 
 ### Issue: Cannot connect to Autonomous Database
 
@@ -577,7 +577,7 @@ docker rm -f oracle23ai
 
 **Solution:**
 - Verify you are running Oracle Database 19c or higher
-- Ensure JSON features are enabled (should be by default in 23ai and ADB)
+- Ensure JSON features are enabled (should be by default in 23ai and Autonomous Database)
 - Grant alternative privileges:
 
 ```sql

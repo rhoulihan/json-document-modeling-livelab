@@ -40,7 +40,7 @@ This workshop teaches document modeling based on industry-leading guidance:
 In this workshop, you will:
 
 * **Understand the paradigm shift** from relational (RDBMS) to document (NoSQL) data modeling
-* **Master the Single Collection/Table Design pattern** - the key to avoiding LOB performance cliffs
+* **Learn the Single Collection/Table Design pattern** - the key to avoiding LOB performance cliffs
 * **Learn composite key strategies** for hierarchical entity relationships
 * **Apply strategic denormalization** to eliminate application-level joins
 * **Implement Oracle JSON Collections** with OSON binary format optimization
@@ -158,7 +158,7 @@ This workshop uses:
 ### Workshop Flow
 
 **Lab 0: Setup (30 minutes)**
-- Provision Oracle Database (23ai Free or ADB Free Tier)
+- Provision Oracle Database (23ai Free or Autonomous Database Free Tier)
 - Configure JSON Collections
 - Load sample data
 - Verify environment
@@ -181,7 +181,7 @@ This workshop uses:
 - Apply strategic denormalization
 - Avoid LOB performance cliffs
 - Measure 10-20x performance improvements
-- Master Rick Houlihan's access pattern-first methodology
+- Learn Rick Houlihan's access pattern-first methodology
 
 ### What You Will Build
 
@@ -224,7 +224,7 @@ Oracle JSON Collections combine the best of both worlds:
 - **MongoDB compatibility** for easy migration
 - **Enterprise features** (backup, security, high availability)
 
-### Getting Help
+### Get Help
 
 If you need assistance during this workshop:
 

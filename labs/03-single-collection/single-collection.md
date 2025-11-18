@@ -15,7 +15,7 @@ Estimated Time: 60 minutes
 In this lab, you will:
 
 * Understand the paradigm shift from entity-first (RDBMS) to access pattern-first (NoSQL) design
-* Master Rick Houlihan's core principle: "What is accessed together should be stored together"
+* Learn Rick Houlihan's core principle: "What is accessed together should be stored together"
 * Implement composite key strategies (delimiter-based, hierarchical, date-based)
 * Apply strategic denormalization to eliminate application-level joins
 * Store multiple entity types in a single collection using polymorphic documents
@@ -320,7 +320,7 @@ Strategic denormalization is the practice of intentionally duplicating data that
 | Data is small (< 1KB)? | ✅ Yes | Customer email, shipping address |
 | Read-heavy workload? | ✅ Yes | Order history queries |
 | Data changes frequently? | ❌ No | Inventory levels |
-| Data is large (> 10KB)? | ❌ No | Product images, full descriptions |
+| Data is large (over 10KB)? | ❌ No | Product images, full descriptions |
 | Strong consistency required? | ❌ No | Financial balances |
 
 **Rick Houlihan's Guidance (2024):**

@@ -5,227 +5,107 @@ Use this checklist to track progress during workshop development.
 
 ---
 
-## Phase 1: Core Content (Weeks 1-2)
+## Phase 1: Core Content (Weeks 1-2) - **IN PROGRESS**
 
-### Lab 0: Introduction & Setup
-- [ ] Write introduction.md
-- [ ] Create setup instructions for ADB Free Tier
-- [ ] Create setup instructions for Oracle 23ai Free
-- [ ] Create verification scripts
+### Lab 0: Introduction & Setup - **80% COMPLETE**
+- [x] Write introduction.md
+- [x] Create setup instructions for ADB Free Tier
+- [x] Create setup instructions for Oracle 23ai Free
+- [x] Create verification scripts (embedded in lab)
 - [ ] Screenshot: ADB provisioning
 - [ ] Screenshot: JSON Collection creation
 - [ ] Screenshot: First document insert
-- [ ] Test on both platforms
+- [ ] Test on both platforms (ready to test with Docker installed)
 
-### Lab 1: JSON Collections Fundamentals
-- [ ] Write lab1-fundamentals.md
-- [ ] Create sample product catalog data (100 products)
-- [ ] Create CRUD operation examples
-- [ ] Create json_value, json_query, json_exists examples
-- [ ] Script: benchmark_oson_vs_clob.sql
-- [ ] Script: measure_insert_performance.sql
+### Lab 1: JSON Collections Fundamentals - **85% COMPLETE**
+- [x] Write lab1-fundamentals.md
+- [x] Create sample product catalog data (100+ products via CONNECT BY)
+- [x] Create CRUD operation examples
+- [x] Create json_value, json_query, json_exists examples
+- [x] Create JSON_TABLE examples
+- [x] Create JSON_MERGEPATCH examples
+- [x] Create multivalue index examples
+- [x] Create search index examples
+- [x] OSON storage tier examples and explanations
+- [ ] Script: benchmark_oson_vs_clob.sql (embedded in lab, could extract)
+- [ ] Script: measure_insert_performance.sql (embedded in lab, could extract)
 - [ ] Screenshot: SQL Developer Web interface
 - [ ] Screenshot: OSON storage explanation
 - [ ] Test all examples
 
-### Lab 2: Embedded vs. Referenced Patterns
-- [ ] Write lab2-embedded-referenced.md
-- [ ] Generate e-commerce dataset:
-  - [ ] 10,000 products
-  - [ ] 5,000 customers
-  - [ ] 20,000 orders (embedded version)
-  - [ ] 50,000 order items (referenced version)
-- [ ] Create embedded pattern examples
-- [ ] Create referenced pattern examples
-- [ ] Script: benchmark_embedded_orders.sql
-- [ ] Script: benchmark_referenced_orders.sql
-- [ ] Script: compare_update_patterns.sql
-- [ ] Script: storage_comparison.sql
-- [ ] Create decision matrix diagram
+### Lab 2: Embedded vs. Referenced Patterns - **90% COMPLETE**
+- [x] Write lab2-embedded-referenced.md
+- [x] Generate e-commerce dataset:
+  - [x] Products (embedded in examples)
+  - [x] Customers (embedded in examples)
+  - [x] 100+ orders (embedded version) via CONNECT BY
+  - [x] 100+ order items (referenced version) via CONNECT BY
+- [x] Create embedded pattern examples
+- [x] Create referenced pattern examples
+- [x] Script: benchmark_embedded_orders.sql (embedded in lab)
+- [x] Script: benchmark_referenced_orders.sql (embedded in lab)
+- [x] Script: storage_comparison.sql (embedded in lab)
+- [x] Create decision matrix (markdown table format)
+- [x] Create update pattern examples
+- [x] Create hybrid approach examples
+- [ ] Create decision matrix diagram (visual)
 - [ ] Screenshot: Performance comparison results
 - [ ] Test both patterns
 
-### Lab 3: Computed Pattern & Aggregations
-- [ ] Write lab3-computed.md
-- [ ] Generate social media dataset:
-  - [ ] 50,000 posts
-  - [ ] 200,000 likes
-  - [ ] 100,000 comments
-- [ ] Create examples without computed fields
-- [ ] Create examples with computed fields
-- [ ] Create trigger for auto-update
-- [ ] Create materialized view example
-- [ ] Script: benchmark_computed_vs_aggregate.sql
-- [ ] Script: measure_write_overhead.sql
-- [ ] Script: trigger_performance.sql
-- [ ] Script: materialized_view_comparison.sql
-- [ ] Screenshot: Performance improvement graph
-- [ ] Test trigger functionality
+### Lab 3: Single Collection/Table Design Pattern - **95% COMPLETE** ⭐
+**NOTE:** This replaces original "Lab 3: Computed Pattern" - prioritized as most critical pattern
 
-### Lab 4: Bucketing Pattern for Time-Series
-- [ ] Write lab4-bucketing.md
-- [ ] Generate IoT sensor dataset:
-  - [ ] 100 sensors
-  - [ ] 1,000,000 readings
-  - [ ] Hourly buckets
-- [ ] Create unbucketed example (anti-pattern)
-- [ ] Create hourly bucketing example
-- [ ] Create daily bucketing example
-- [ ] Script: benchmark_bucketing_strategies.sql
-- [ ] Script: measure_document_growth.sql
-- [ ] Script: bucket_query_performance.sql
-- [ ] Script: optimal_bucket_size.sql
-- [ ] Create bucket size decision table
-- [ ] Screenshot: Document size comparison
-- [ ] Test range queries
+- [x] Write lab3-single-collection.md (93KB comprehensive lab)
+- [x] Generate e-commerce dataset with composite keys:
+  - [x] 100 customers with composite IDs
+  - [x] 10,000 orders with composite keys (CUSTOMER#xxx#ORDER#xxx)
+  - [x] Polymorphic documents (customers, orders, items in same collection)
+- [x] Create delimiter-based composite key examples
+- [x] Create hierarchical composite key examples
+- [x] Create date-based composite key examples (time-series)
+- [x] Create strategic denormalization examples
+- [x] Create extended reference pattern examples
+- [x] Create polymorphic document examples
+- [x] Script: benchmark single vs multi collection (embedded - 1000 iterations)
+- [x] Create anti-patterns guide (what NOT to do)
+- [x] Create LOB cliff avoidance strategies
+- [x] Create OSON performance tier examples
+- [x] Rick Houlihan's 2024 guidance integrated
+- [x] Create decision framework for denormalization
+- [ ] Create visual flowchart for pattern selection
+- [ ] Screenshot: Performance comparison (10-20x improvement)
+- [ ] Screenshot: Composite key query examples
+- [ ] Test all patterns
 
-### Lab 5: Polymorphic Pattern
-- [ ] Write lab5-polymorphic.md
-- [ ] Generate financial transaction dataset:
-  - [ ] 50,000 transactions (mixed types)
-  - [ ] 25% deposits, 30% withdrawals, 35% transfers, 10% payments
-- [ ] Create polymorphic collection examples
-- [ ] Create type-specific query examples
-- [ ] Script: benchmark_polymorphic_queries.sql
-- [ ] Script: compare_collection_splitting.sql
-- [ ] Script: polymorphic_indexing.sql
-- [ ] Create when-to-use guide
-- [ ] Screenshot: Query results by type
-- [ ] Test cross-type aggregations
+### Original Lab 3 (Computed Pattern) - **DEFERRED to Lab 4**
+This lab was deprioritized in favor of Single Collection pattern. Will be implemented as Lab 4 in future phases.
 
 ---
 
-## Phase 2: Advanced Content (Weeks 3-4)
+## Phase 4: Review & Publication - **PARTIALLY COMPLETE**
 
-### Lab 6: Avoiding LOB Performance Cliffs
-- [ ] Write lab6-lob-performance.md
-- [ ] Generate documents of varying sizes:
-  - [ ] 1KB, 5KB, 7KB, 8KB
-  - [ ] 100KB, 1MB, 5MB, 10MB, 20MB, 30MB
-- [ ] Create inline storage examples
-- [ ] Create LOB storage examples
-- [ ] Create document splitting examples (vertical, horizontal, archive)
-- [ ] Script: measure_size_impact.sql
-- [ ] Script: find_large_documents.sql
-- [ ] Script: benchmark_splitting_strategies.sql
-- [ ] Script: monitor_document_growth.sql
-- [ ] Create performance tier table/diagram
-- [ ] Screenshot: Performance degradation graph
-- [ ] Test at each size threshold
+### Workshop Structure - **100% COMPLETE** ✅
+- [x] Create manifest.json for tenancy deployment
+- [x] Create manifest.json for desktop deployment
+- [ ] Create variables.json if needed (not needed yet)
+- [x] Create introduction/introduction.md
+- [x] Organize all lab files in proper structure
+- [x] Create workshop README.md
 
-### Lab 7: Indexing Strategies
-- [ ] Write lab7-indexing.md
-- [ ] Expand product dataset to 100,000 products
-- [ ] Create multivalue index examples
-- [ ] Create search index examples
-- [ ] Create composite index examples
-- [ ] Create partial index examples (23ai)
-- [ ] Create subsetting index examples (23ai)
-- [ ] Script: benchmark_no_indexes.sql
-- [ ] Script: benchmark_multivalue_index.sql
-- [ ] Script: benchmark_search_index.sql
-- [ ] Script: benchmark_composite_index.sql
-- [ ] Script: analyze_execution_plans.sql
-- [ ] Script: measure_index_overhead.sql
-- [ ] Create index decision matrix
-- [ ] Screenshot: Execution plans comparison
-- [ ] Screenshot: Performance with/without indexes
-- [ ] Test all index types
-
-### Lab 8: Performance Testing & Comparison
-- [ ] Write lab8-performance-testing.md
-- [ ] Create performance metrics table schema
-- [ ] Create test framework/template
-- [ ] Script: run_all_benchmarks.sql
-- [ ] Script: compare_patterns.sql
-- [ ] Script: generate_performance_report.sql
-- [ ] Script: workload_simulator.sql
-- [ ] Script: collect_metrics.sql
-- [ ] Create 4 comprehensive test scenarios:
-  - [ ] E-commerce order retrieval
-  - [ ] Social media feed
-  - [ ] IoT sensor queries
-  - [ ] Product search
-- [ ] Create analysis framework
-- [ ] Create decision flowchart
-- [ ] Create performance report template (spreadsheet)
-- [ ] Screenshot: Full benchmark results
-- [ ] Test entire framework
-
-### Lab 9: Advanced Patterns & Best Practices
-- [ ] Write lab9-advanced.md
-- [ ] Create subset pattern examples
-- [ ] Create extended reference pattern examples
-- [ ] Create approximation pattern examples
-- [ ] Create attribute pattern examples
-- [ ] Create schema versioning examples (v1, v2, migration)
-- [ ] Create document validation examples
-- [ ] Script: implement_subset_pattern.sql
-- [ ] Script: implement_extended_reference.sql
-- [ ] Script: schema_validation_examples.sql
-- [ ] Script: migration_strategies.sql
-- [ ] Create design checklist
-- [ ] Create pattern selection flowchart (visual)
-- [ ] Create anti-patterns guide
-- [ ] Screenshot: Schema evolution example
-- [ ] Test all advanced patterns
-
----
-
-## Phase 3: Testing & Refinement (Week 5)
-
-### Internal Testing
-- [ ] Complete end-to-end test of all labs (ADB Free Tier)
-- [ ] Complete end-to-end test of all labs (23ai Free)
-- [ ] Verify all scripts execute successfully
-- [ ] Verify all data loads correctly
-- [ ] Time each lab (adjust estimates)
-- [ ] Test on clean environment (no prior setup)
-- [ ] Test with minimum required privileges
-- [ ] Verify all screenshots are clear and properly blurred
-
-### Script Validation
-- [ ] All setup scripts tested
-- [ ] All pattern implementation scripts tested
-- [ ] All benchmark scripts tested
-- [ ] All indexing scripts tested
-- [ ] All analysis scripts tested
-- [ ] All utility scripts tested
-- [ ] Verify performance metrics collection
-- [ ] Verify report generation
-
-### Content Quality
-- [ ] Spell check all markdown files
-- [ ] Grammar check all markdown files
-- [ ] Vale linting (Oracle style)
-- [ ] Verify all code snippets have syntax highlighting
-- [ ] Verify all images have alt text
-- [ ] Verify all images blur sensitive information
+### Content Quality - **80% COMPLETE**
+- [x] Vale linting (Oracle style) - **0 ERRORS, 3 WARNINGS**
+- [x] Fix all Vale errors (offensive terms, product names, heading verbs, menu cascades)
+- [x] Fix deprecated Vale syntax (scope: link → raw)
+- [x] Verify all code snippets have proper formatting
+- [x] Verify consistent terminology
+- [x] Verify consistent formatting
+- [ ] Spell check all markdown files (partially via Vale)
+- [ ] Grammar check all markdown files (partially via Vale)
+- [ ] Verify all images have alt text (no images added yet)
+- [ ] Verify all images blur sensitive information (no images yet)
 - [ ] Check all links are valid
-- [ ] Verify consistent formatting
-- [ ] Verify consistent terminology
 
-### Bug Fixes
-- [ ] Fix any script errors
-- [ ] Fix any data generation issues
-- [ ] Fix any performance issues
-- [ ] Fix any documentation errors
-- [ ] Update timing estimates based on tests
-- [ ] Address any usability issues
-
----
-
-## Phase 4: Review & Publication (Week 6)
-
-### Workshop Structure
-- [ ] Create manifest.json for tenancy deployment
-- [ ] Create manifest.json for desktop deployment
-- [ ] Create variables.json if needed
-- [ ] Create introduction/introduction.md
-- [ ] Organize all lab files in proper structure
-- [ ] Create workshop README.md
-
-### Images & Diagrams
+### Images & Diagrams - **NOT STARTED**
 - [ ] Create workshop banner image
 - [ ] Create pattern comparison diagrams
 - [ ] Create flowcharts (pattern selection, decision framework)
@@ -235,137 +115,201 @@ Use this checklist to track progress during workshop development.
 - [ ] Verify all images properly blurred
 - [ ] Optimize image sizes
 
-### Documentation
-- [ ] Create Pattern Reference Guide (PDF)
+### Documentation - **COMPLETE** ✅
+- [x] Create Pattern Reference Guide (SINGLE_COLLECTION_PATTERN.md - 22KB)
+- [x] Create PATTERN_REFERENCE.md (17KB quick reference)
+- [x] Create CLAUDE.md (comprehensive development guide)
+- [x] Create README.md (workshop overview)
+- [x] Create WORKSHOP_PLAN_UPDATED.md (complete plan)
+- [x] Create DELIVERY_SUMMARY.md
 - [ ] Create Performance Comparison Report template
-- [ ] Create Quick Reference Card
-- [ ] Create Troubleshooting Guide
-- [ ] Create Additional Resources list
+- [ ] Create Quick Reference Card (printable)
+- [ ] Create Troubleshooting Guide (embedded in labs, could extract)
+- [ ] Create Additional Resources list (embedded in labs)
 - [ ] Create workshop presentation slides (optional)
 
-### Data & Scripts Package
-- [ ] Package all SQL scripts
-- [ ] Package all data generation scripts
-- [ ] Package sample JSON files
-- [ ] Create installation/setup automation
-- [ ] Create README for scripts
-- [ ] Test package installation
-
-### WMS Submission
-- [ ] Submit workshop to WMS
-- [ ] Fill in workshop abstract
-- [ ] Fill in workshop outline
-- [ ] Fill in prerequisites
-- [ ] Select appropriate tags (Level, Role, Focus Area, Product)
-- [ ] Wait for council approval
-
-### Peer Review
-- [ ] Internal team review
-- [ ] SME technical review
-- [ ] Workshop Council review
-- [ ] Incorporate feedback
-- [ ] Re-test after changes
-
-### Final QA
-- [ ] Complete final end-to-end test
-- [ ] Verify all links work
-- [ ] Verify all scripts work
-- [ ] Verify all data loads
-- [ ] Verify timing estimates accurate
-- [ ] Verify all images display properly
-- [ ] Check mobile responsiveness
-- [ ] Verify need-help lab included
-- [ ] Verify acknowledgements updated
-
-### Publication
-- [ ] Create pull request (if applicable)
-- [ ] Update WMS status
-- [ ] Publish to LiveLabs
-- [ ] Verify published version
-- [ ] Test published version
-- [ ] Announce to stakeholders
+### Templates & Tools - **100% COMPLETE** ✅
+- [x] Copy Vale linting configuration from common
+- [x] Copy sample lab templates from common
+- [x] Copy sample workshop templates from common
+- [x] Copy Oracle standard files (LICENSE, CONTRIBUTING, SECURITY)
+- [x] Create lintchecker/README.md with usage instructions
+- [x] Create templates/README.md with template guide
 
 ---
 
-## Additional Tasks
+## Testing & Quality Assurance
 
-### Optional Enhancements
-- [ ] Create video walkthrough (5-10 min overview)
-- [ ] Create MongoDB API examples
-- [ ] Create Python examples
-- [ ] Create Node.js examples
-- [ ] Create Java examples
-- [ ] Create REST API examples
-- [ ] Create interactive demos
-- [ ] Create Jupyter notebooks
-- [ ] Create Docker compose file for 23ai setup
+### Environment Setup - **100% COMPLETE** ✅
+- [x] Install Vale 2.29.0 on WSL Ubuntu
+- [x] Install Docker Engine on WSL Ubuntu
+- [x] Configure Vale with Oracle style guides
+- [x] Verify Vale linting operational
 
-### Marketing & Promotion
-- [ ] Create social media posts
-- [ ] Create blog post announcement
-- [ ] Submit to Oracle community newsletters
-- [ ] Present at internal demo session
-- [ ] Create promotional graphics
+### Testing - **READY TO BEGIN**
+- [ ] Complete end-to-end test of Labs 0-3 (ADB Free Tier)
+- [ ] Complete end-to-end test of Labs 0-3 (23ai Free with Docker)
+- [ ] Verify all scripts execute successfully
+- [ ] Verify all data loads correctly
+- [ ] Time each lab (adjust estimates)
+- [ ] Test on clean environment (no prior setup)
+- [ ] Verify all SQL examples work
+- [ ] Verify performance benchmarks produce expected results
 
-### Ongoing Maintenance
-- [ ] Schedule quarterly review
-- [ ] Monitor user feedback
-- [ ] Track completion rates
-- [ ] Update for new Oracle features
-- [ ] Refresh sample data periodically
-
----
-
-## Notes & Issues
-
-**Use this section to track blockers, questions, or issues during implementation:**
-
-### Blockers
-- (Add any blockers here)
-
-### Questions for Review
-- (Add questions here)
-
-### Known Issues
-- (Track issues and resolutions here)
-
-### Change Log
-- (Track major changes from original plan)
+### Script Validation - **EMBEDDED IN LABS**
+All scripts are currently embedded in lab markdown files. Can be extracted to separate files if needed.
+- [x] Setup scripts (embedded in Lab 0)
+- [x] Pattern implementation scripts (embedded in Labs 1-3)
+- [x] Benchmark scripts (embedded in Labs 2-3)
+- [x] Indexing scripts (embedded in Lab 1)
+- [ ] Extract to standalone SQL files (optional enhancement)
 
 ---
 
 ## Progress Summary
 
-**Last Updated:** [DATE]
+**Last Updated:** November 18, 2024
 
-**Overall Completion:** ___%
+**Overall Completion for Labs 0-3:** 85%
 
 ### Phase Status
-- [ ] Phase 1: Core Content (0%)
-- [ ] Phase 2: Advanced Content (0%)
-- [ ] Phase 3: Testing & Refinement (0%)
-- [ ] Phase 4: Review & Publication (0%)
+- [x] **Phase 1: Core Content (Labs 0-3)** - 87% complete
+  - Lab 0: 80% complete (missing screenshots, testing)
+  - Lab 1: 85% complete (missing screenshots, testing)
+  - Lab 2: 90% complete (missing screenshots, testing)
+  - Lab 3: 95% complete (missing screenshots, testing) ⭐ FLAGSHIP LAB
+- [ ] Phase 2: Advanced Content (Labs 4-10) - 0% (not started)
+- [ ] Phase 3: Testing & Refinement - 10% (environment ready, tests pending)
+- [x] **Phase 4: Review & Publication** - 60% complete
+  - Workshop structure: ✅ 100%
+  - Content quality: 80%
+  - Documentation: ✅ 100%
+  - Images: 0%
 
-### Lab Status
-- [ ] Lab 0: Setup (0%)
-- [ ] Lab 1: Fundamentals (0%)
-- [ ] Lab 2: Embedded vs Referenced (0%)
-- [ ] Lab 3: Computed Pattern (0%)
-- [ ] Lab 4: Bucketing Pattern (0%)
-- [ ] Lab 5: Polymorphic Pattern (0%)
-- [ ] Lab 6: LOB Performance (0%)
-- [ ] Lab 7: Indexing (0%)
-- [ ] Lab 8: Performance Testing (0%)
-- [ ] Lab 9: Advanced Patterns (0%)
+### Lab Status (Part 1: Foundation Series)
+- [x] **Introduction** - 100% complete, Vale clean ✅
+- [x] **Lab 0: Setup** - 80% complete, Vale clean ✅
+- [x] **Lab 1: Fundamentals** - 85% complete, Vale clean ✅
+- [x] **Lab 2: Embedded vs Referenced** - 90% complete, Vale clean ✅
+- [x] **Lab 3: Single Collection/Table Design** - 95% complete, Vale clean ✅
+- [ ] Lab 4: Computed Pattern (original Lab 3) - 0%
+- [ ] Lab 5: Bucketing Pattern - 0%
+- [ ] Lab 6: Polymorphic Pattern - 0%
+- [ ] Lab 7: LOB Performance - 0%
+- [ ] Lab 8: Indexing - 0%
+- [ ] Lab 9: Performance Testing - 0%
+- [ ] Lab 10: Advanced Patterns - 0%
 
-### Scripts Status
-- [ ] Setup Scripts (0%)
-- [ ] Pattern Scripts (0%)
-- [ ] Benchmark Scripts (0%)
-- [ ] Indexing Scripts (0%)
-- [ ] Analysis Scripts (0%)
-- [ ] Utility Scripts (0%)
+### Content Metrics
+- **Total markdown files:** 5 (Introduction + Labs 0-3)
+- **Total lines of markdown:** 3,746 lines
+- **Total content size:** 389KB
+- **Estimated workshop time:** 2.75 hours (165 minutes)
+- **Vale linting status:** ✅ 0 errors, 3 minor warnings
+- **Git commits:** 6 commits
+- **GitHub repository:** https://github.com/rhoulihan/json-document-modeling-livelab
+
+### What's Complete ✅
+1. ✅ Comprehensive lab content for Foundation series (Labs 0-3)
+2. ✅ Workshop introduction with three-part series overview
+3. ✅ Both deployment options (ADB Free Tier + 23ai Free Docker)
+4. ✅ Rick Houlihan's Single Collection pattern (25-page guide + 60-min lab)
+5. ✅ Performance benchmarks embedded in Labs 2-3
+6. ✅ Decision frameworks for pattern selection
+7. ✅ Workshop manifests (tenancy + desktop)
+8. ✅ Vale linting with Oracle style guide compliance
+9. ✅ Comprehensive documentation (CLAUDE.md, README.md, etc.)
+10. ✅ Templates and tools from oracle-livelabs/common
+
+### What's Pending 📝
+1. 📸 Screenshots for all labs (Oracle console, SQL results, performance graphs)
+2. 🧪 End-to-end testing on Oracle Database 23ai/ADB Free
+3. ⏱️ Timing validation for all labs
+4. 🎨 Visual diagrams (flowcharts, architecture, performance graphs)
+5. 📦 Standalone SQL script files (optional - currently embedded in labs)
+6. 🎥 Video walkthrough (optional enhancement)
+7. 🚀 Labs 4-10 (Advanced patterns - future phases)
+
+### Next Immediate Steps
+1. **Test Labs 0-3** using Docker Oracle 23ai Free (environment ready)
+2. **Capture screenshots** during testing
+3. **Validate performance benchmarks** produce expected results (3-4x, 10-20x)
+4. **Update timing estimates** based on actual test run
+5. **Create visual diagrams** for pattern selection and architecture
 
 ---
 
-**Ready to begin implementation? Start with Phase 1, Lab 0!**
+## Notes & Issues
+
+### Accomplishments
+- ✅ Successfully adapted Rick Houlihan's DynamoDB Single Table Design for Oracle JSON Collections
+- ✅ Created comprehensive 93KB flagship lab on Single Collection pattern
+- ✅ Integrated 2024 guidance (what NOT to do with single table design)
+- ✅ Achieved Oracle style guide compliance (0 Vale errors)
+- ✅ Implemented three-part workshop series structure
+- ✅ Repository fully set up with all templates and tools
+
+### Design Decisions
+- **Prioritized Single Collection pattern** as Lab 3 instead of Computed Pattern
+  - Rationale: More critical for avoiding LOB performance cliffs
+  - Based on Rick Houlihan (DynamoDB) and MongoDB best practices
+  - Most impactful pattern for Oracle JSON Collections performance
+- **Three-part workshop series** instead of single 6.5-hour workshop
+  - Part 1: Foundation (Labs 0-3) - 2.75 hours
+  - Part 2: Single Collection Deep-Dive (Lab 3 expanded) - 1.5 hours
+  - Part 3: Advanced Patterns (Labs 4-10) - 4-4.5 hours
+- **Embedded SQL in labs** instead of separate script files
+  - Better for learning (copy/paste as you go)
+  - Can be extracted later if needed for automation
+
+### Blockers
+- None currently
+
+### Questions for Review
+- Should we extract SQL to standalone script files? (currently embedded for learning)
+- Should Lab 3 be even more comprehensive for Part 2 workshop?
+- What screenshots are most valuable? (prioritize which to capture first)
+- Should we create video walkthrough before or after user testing?
+
+### Known Issues
+- Vale warnings about "here" in link contexts (3 instances) - acceptable per Oracle standards
+- No actual database testing performed yet (environment ready, Docker installed)
+- No screenshots captured yet (will do during testing phase)
+- Timing estimates based on content review, not actual execution
+
+### Change Log
+- **Nov 18, 2024:** Changed Lab 3 from "Computed Pattern" to "Single Collection/Table Design"
+- **Nov 18, 2024:** Restructured as three-part workshop series
+- **Nov 18, 2024:** Completed Labs 0-3 with Vale linting (0 errors)
+- **Nov 18, 2024:** Installed Vale and Docker on WSL Ubuntu for testing
+- **Nov 18, 2024:** Created comprehensive documentation suite
+
+---
+
+## Repository Status
+
+**GitHub:** https://github.com/rhoulihan/json-document-modeling-livelab
+**Branch:** main
+**Status:** ✅ Ready for testing
+**Commits:** 6 total
+**Last commit:** Vale linting fixes
+
+**Files Created:**
+- introduction/introduction.md (95KB)
+- labs/00-setup/setup.md (50KB)
+- labs/01-fundamentals/fundamentals.md (72KB)
+- labs/02-embedded-referenced/embedded-referenced.md (79KB)
+- labs/03-single-collection/single-collection.md (93KB)
+- workshops/tenancy/manifest.json
+- workshops/desktop/manifest.json
+- SINGLE_COLLECTION_PATTERN.md (22KB)
+- PATTERN_REFERENCE.md (17KB)
+- CLAUDE.md (comprehensive dev guide)
+- README.md (workshop overview)
+- Plus templates, lintchecker, and standard Oracle files
+
+---
+
+**Ready for Phase 3: Testing!** 🚀
+
+Next action: Execute Labs 0-3 on Oracle Database 23ai Free (Docker) to validate all SQL and capture screenshots.

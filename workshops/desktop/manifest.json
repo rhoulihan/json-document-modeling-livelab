@@ -1,0 +1,41 @@
+{
+  "workshoptitle": "JSON Document Modeling for Performance - Part 1: Fundamentals (Desktop)",
+  "help": "livelabs-help-db_us@oracle.com",
+  "tutorials": [
+    {
+      "title": "Introduction",
+      "description": "Introduction to JSON Document Modeling for Performance workshop",
+      "filename": "../../introduction/introduction.md"
+    },
+    {
+      "title": "Get Started with noVNC Remote Desktop",
+      "description": "Access your workshop environment",
+      "filename": "https://oracle-livelabs.github.io/common/labs/remote-desktop/using-novnc-remote-desktop.md"
+    },
+    {
+      "title": "Lab 0: Setup Your Environment",
+      "description": "Provision Oracle Database and configure JSON Collections",
+      "filename": "../../labs/00-setup/setup.md"
+    },
+    {
+      "title": "Lab 1: JSON Collections Fundamentals",
+      "description": "Master CRUD operations, OSON format, and basic indexing",
+      "filename": "../../labs/01-fundamentals/fundamentals.md"
+    },
+    {
+      "title": "Lab 2: Embedded vs Referenced Patterns",
+      "description": "Compare denormalized vs normalized approaches with performance benchmarks",
+      "filename": "../../labs/02-embedded-referenced/embedded-referenced.md"
+    },
+    {
+      "title": "Lab 3: Single Collection/Table Design",
+      "description": "Master the most critical NoSQL pattern for 10-20x performance gains",
+      "filename": "../../labs/03-single-collection/single-collection.md"
+    },
+    {
+      "title": "Need Help?",
+      "description": "Solutions to common issues and LiveLabs support",
+      "filename": "https://oracle-livelabs.github.io/common/labs/need-help/need-help-livelabs.md"
+    }
+  ]
+}

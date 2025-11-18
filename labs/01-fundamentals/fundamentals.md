@@ -670,7 +670,7 @@ OSON (Oracle Optimized Binary JSON) is Oracle's internal binary format for JSON 
    - Stored in separate LOB segment
    - Slower performance (additional I/O required)
    - Acceptable for < 100KB documents
-   - Avoid > 10MB documents
+   - Avoid documents over 10MB
 
 3. **Maximum document size: 32MB**
    - Hard limit for OSON format

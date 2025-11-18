@@ -127,7 +127,7 @@ This is the **most important decision** in document modeling, and your answer sh
 | **Update Frequency** | Read-heavy, infrequent updates | Write-heavy, frequent updates |
 | **Data Size** | Small, bounded arrays (< 100 items) | Large, unbounded arrays |
 | **Consistency** | Eventual consistency acceptable | Strong consistency required |
-| **Relationships** | 1-to-few (< 100 related items) | 1-to-many (> 100 related items) |
+| **Relationships** | 1-to-few (under 100 related items) | 1-to-many (over 100 related items) |
 
 **Key Principle:**
 > **"What is accessed together should be stored together."** - Rick Houlihan
@@ -753,7 +753,7 @@ Now let's measure the performance difference between embedded and referenced pat
 1. ✅ **Data is accessed independently**
    - Example: Product catalog (products queried separately from orders)
 
-2. ✅ **Unbounded, large arrays** (> 100 items)
+2. ✅ **Unbounded, large arrays** (over 100 items)
    - Example: Social media followers (millions of followers)
 
 3. ✅ **Write-heavy workload**

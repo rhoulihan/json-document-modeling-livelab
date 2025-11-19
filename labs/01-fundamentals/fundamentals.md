@@ -803,6 +803,6 @@ You are now ready to proceed to **Lab 2: Embedded vs Referenced Patterns**, wher
 
 ## Acknowledgements
 
-* **Author** - Rick Houlihan, Solution Architect
+* **Author** - Rick Houlihan
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
 * **Last Updated By/Date** - Rick Houlihan, November 2024

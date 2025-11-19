@@ -1591,7 +1591,7 @@ In the remaining labs (4-10), you will learn:
 
 ## Acknowledgements
 
-* **Author** - Rick Houlihan, Solution Architect
+* **Author** - Rick Houlihan
 * **Based on** - Rick Houlihan (AWS), MongoDB Engineering Team
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
 * **Last Updated By/Date** - Rick Houlihan, November 2024

@@ -519,7 +519,7 @@ Congratulations! You have completed the Oracle JSON Collections Document Modelin
 
 ## Acknowledgments
 
-* **Author** - Rick Houlihan, Principal Solutions Architect, Oracle Database
+* **Author** - Rick Houlihan
 * **Contributors** - MongoDB Data Modeling Team, AWS DynamoDB Team
 * **Last Updated By/Date** - November 2024
 

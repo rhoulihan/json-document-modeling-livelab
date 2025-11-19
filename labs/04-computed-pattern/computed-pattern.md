@@ -801,5 +801,5 @@ In this lab, you learned how to implement the Computed Pattern for storing pre-c
 
 ## Acknowledgments
 
-* **Author** - Rick Houlihan, Principal Solutions Architect, Oracle Database
+* **Author** - Rick Houlihan
 * **Last Updated By/Date** - November 2024

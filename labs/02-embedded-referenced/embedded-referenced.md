@@ -899,6 +899,6 @@ You are now ready for **Lab 3: Single Collection/Table Design**, where you will 
 
 ## Acknowledgements
 
-* **Author** - Rick Houlihan, Solution Architect
+* **Author** - Rick Houlihan
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
 * **Last Updated By/Date** - Rick Houlihan, November 2024

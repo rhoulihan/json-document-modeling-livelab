@@ -252,6 +252,6 @@ This workshop was developed by Oracle Database experts in collaboration with the
 
 ## Acknowledgements
 
-* **Author** - Rick Houlihan, Solution Architect
+* **Author** - Rick Houlihan
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
 * **Last Updated By/Date** - Rick Houlihan, November 2024

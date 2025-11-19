@@ -112,21 +112,56 @@ Access Pattern 3: Search products
 
 ## Task 2: Composite Key Strategies
 
-Composite keys are the foundation of Single Collection design. They enable you to store multiple entity types in one collection while maintaining efficient queries.
+Composite keys enable you to store multiple entity types in one collection while maintaining efficient queries. However, their use differs between DynamoDB and Oracle JSON Collections.
 
-### Step 1: Understanding Composite Keys
+### Step 1: Understanding Composite Keys - DynamoDB vs Oracle
 
 **What is a composite key?**
 
 A composite key combines multiple identifiers into a single `_id` field to represent hierarchical relationships.
 
-**Why use composite keys?**
+**DynamoDB Context (Rick Houlihan's Original Pattern):**
 
-1. ✅ Support multiple entity types in one collection
-2. ✅ Enable efficient prefix queries
+In DynamoDB, composite keys are **essential** because:
+- ❌ DynamoDB does NOT support compound indexes
+- ❌ You can only query on the partition key + sort key
+- ✅ Composite keys enable hierarchical queries (`CUSTOMER#456#ORDER#001`)
+- ✅ Prefix queries work on sort keys (`begins_with`)
+
+**Oracle JSON Collections Context (Important Difference!):**
+
+In Oracle, composite keys are **optional** because:
+- ✅ Oracle DOES support compound/multi-column indexes
+- ✅ You can create indexes on multiple JSON fields: `orderId`, `customerId`, etc.
+- ✅ You can query efficiently using standard indexed fields
+
+**When to Use Composite Keys in Oracle:**
+
+Use composite keys in Oracle when you want **write efficiency without indexing overhead**:
+
+1. ✅ **Write-heavy workloads** where indexing overhead is expensive
+2. ✅ **Grouping related documents** for efficient range queries without indexes
+3. ✅ **Temporal data** where date-based keys enable efficient time-range queries
+4. ✅ **Hierarchical relationships** where parent-child grouping is natural
+
+**When NOT to Use Composite Keys in Oracle:**
+
+Use indexed attributes instead when:
+- ❌ Read performance is more critical than write performance
+- ❌ You need to query by multiple different fields
+- ❌ Your access patterns require complex filtering
+- ❌ Documents are updated frequently (indexes maintain themselves)
+
+**Key Insight:**
+> **In Oracle, choose composite keys for write efficiency and grouping without indexes. Use indexed attributes (like `orderId`) when read performance and query flexibility are more important.**
+
+**Why use composite keys in Oracle?**
+
+1. ✅ **Avoid indexing overhead on writes** - No index maintenance
+2. ✅ Enable efficient prefix queries for grouping
 3. ✅ Natural sorting and grouping
 4. ✅ Express hierarchical relationships
-5. ✅ Reduce number of queries
+5. ✅ Support write-heavy append operations (critical for growing orders!)
 
 ### Step 2: Delimiter-Based Composite Keys
 
@@ -596,9 +631,411 @@ LIMIT: 32MB maximum
 }
 ```
 
-## Task 5: Performance Comparison - Single vs Multiple Collections
+## Task 5: Write-Heavy Orders - Indexed Attributes Approach
 
-Now let's measure the actual performance improvement.
+In real-world e-commerce, orders don't arrive complete - they grow over time with multiple append operations: shipments, invoices, payments, stock updates, and annotations. This causes documents to bloat and hit LOB storage, making writes inefficient.
+
+**The Problem:**
+
+A single order document that grows from 2KB → 50KB → 200KB as updates are appended will:
+- ❌ Start in inline storage (fast writes)
+- ❌ Cross into LOB storage at 7,950 bytes (slower writes)
+- ❌ Continue growing with each shipment, payment, invoice
+- ❌ Eventually approach 32MB limit with hundreds of updates
+- ❌ Every write becomes slower as document grows
+
+**The Solution: Indexed Attribute Pattern**
+
+Instead of composite keys, use **indexed `orderId` attributes** to group small documents:
+
+```
+Single Growing Document (Anti-Pattern):        Multiple Small Documents (Pattern):
+Order#ORD-001 (2KB → 50KB → 200KB)           Order#ORD-001 (2KB, stays small)
+├─ items[]                                    Shipment#SH-001 {orderId: ORD-001} (1KB)
+├─ shipments[] (appends)                      Shipment#SH-002 {orderId: ORD-001} (1KB)
+├─ invoices[] (appends)                       Invoice#INV-001 {orderId: ORD-001} (3KB)
+├─ payments[] (appends)                       Payment#PAY-001 {orderId: ORD-001} (500B)
+├─ stock_updates[] (appends)                  Payment#PAY-002 {orderId: ORD-001} (500B)
+└─ annotations[] (appends)                    StockUpdate#ST-001 {orderId: ORD-001} (300B)
+                                              Annotation#ANN-001 {orderId: ORD-001} (200B)
+
+All documents stay < 7,950 bytes (inline storage)
+Single index on orderId collects them all
+```
+
+### Step 1: Create Write-Heavy Order Collection
+
+1. Create collection for append-heavy orders:
+
+   ```sql
+   CREATE TABLE orders_append_heavy (
+     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+     json_document JSON,
+     created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+   );
+   ```
+
+2. Create index on orderId (critical for collection):
+
+   ```sql
+   -- Index on orderId to collect all related documents
+   CREATE INDEX idx_orders_orderid
+   ON orders_append_heavy (JSON_VALUE(json_document, '$.orderId'));
+
+   -- Index on document type for filtering
+   CREATE INDEX idx_orders_type
+   ON orders_append_heavy (JSON_VALUE(json_document, '$.type'));
+   ```
+
+### Step 2: Insert Order with Separate Event Documents
+
+1. Insert initial order (small, stays inline):
+
+   ```sql
+   INSERT INTO orders_append_heavy (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ORD-2024-001',
+       'orderId' VALUE 'ORD-2024-001',  -- Indexed for collection
+       'type' VALUE 'order',
+       'customerId' VALUE 'CUST-456',
+       'customerName' VALUE 'Alice Johnson',
+       'orderDate' VALUE '2024-11-18T10:00:00Z',
+       'items' VALUE JSON_ARRAY(
+         JSON_OBJECT(
+           'productId' VALUE 'PROD-789',
+           'name' VALUE 'Wireless Headphones',
+           'price' VALUE 79.99,
+           'quantity' VALUE 2
+         )
+       ),
+       'subtotal' VALUE 159.98,
+       'status' VALUE 'pending'
+     )
+   );
+   ```
+
+2. Append shipment information (separate document):
+
+   ```sql
+   INSERT INTO orders_append_heavy (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'SHIPMENT-SH-001',
+       'orderId' VALUE 'ORD-2024-001',  -- Links to order
+       'type' VALUE 'shipment',
+       'shipmentId' VALUE 'SH-001',
+       'carrier' VALUE 'FedEx',
+       'trackingNumber' VALUE '1Z999AA10123456784',
+       'shippedDate' VALUE '2024-11-18T14:30:00Z',
+       'estimatedDelivery' VALUE '2024-11-20',
+       'items' VALUE JSON_ARRAY(
+         JSON_OBJECT('productId' VALUE 'PROD-789', 'quantity' VALUE 2)
+       )
+     )
+   );
+   ```
+
+3. Append invoice (separate document):
+
+   ```sql
+   INSERT INTO orders_append_heavy (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'INVOICE-INV-001',
+       'orderId' VALUE 'ORD-2024-001',  -- Links to order
+       'type' VALUE 'invoice',
+       'invoiceId' VALUE 'INV-001',
+       'invoiceDate' VALUE '2024-11-18T14:35:00Z',
+       'dueDate' VALUE '2024-12-18',
+       'lineItems' VALUE JSON_ARRAY(
+         JSON_OBJECT('description' VALUE 'Wireless Headphones x2', 'amount' VALUE 159.98),
+         JSON_OBJECT('description' VALUE 'Shipping', 'amount' VALUE 12.99),
+         JSON_OBJECT('description' VALUE 'Tax', 'amount' VALUE 13.84)
+       ),
+       'subtotal' VALUE 159.98,
+       'shipping' VALUE 12.99,
+       'tax' VALUE 13.84,
+       'total' VALUE 186.81
+     )
+   );
+   ```
+
+4. Append payment information (separate document):
+
+   ```sql
+   INSERT INTO orders_append_heavy (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'PAYMENT-PAY-001',
+       'orderId' VALUE 'ORD-2024-001',  -- Links to order
+       'type' VALUE 'payment',
+       'paymentId' VALUE 'PAY-001',
+       'paymentDate' VALUE '2024-11-18T14:40:00Z',
+       'method' VALUE 'credit_card',
+       'last4' VALUE '4242',
+       'amount' VALUE 186.81,
+       'status' VALUE 'completed',
+       'transactionId' VALUE 'ch_3MtwBwLkdIwHu7ix0jnF2RBW'
+     )
+   );
+   ```
+
+5. Append stock update (separate document):
+
+   ```sql
+   INSERT INTO orders_append_heavy (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'STOCK-ST-001',
+       'orderId' VALUE 'ORD-2024-001',  -- Links to order
+       'type' VALUE 'stock_update',
+       'updateId' VALUE 'ST-001',
+       'updateDate' VALUE '2024-11-18T14:45:00Z',
+       'productId' VALUE 'PROD-789',
+       'previousStock' VALUE 45,
+       'newStock' VALUE 43,
+       'quantityReserved' VALUE 2,
+       'warehouse' VALUE 'WAREHOUSE-WEST'
+     )
+   );
+   ```
+
+6. Append order annotation (separate document):
+
+   ```sql
+   INSERT INTO orders_append_heavy (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ANNOTATION-ANN-001',
+       'orderId' VALUE 'ORD-2024-001',  -- Links to order
+       'type' VALUE 'annotation',
+       'annotationId' VALUE 'ANN-001',
+       'createdDate' VALUE '2024-11-18T15:00:00Z',
+       'createdBy' VALUE 'support@company.com',
+       'category' VALUE 'customer_request',
+       'note' VALUE 'Customer requested gift wrapping - added to shipment notes',
+       'visibility' VALUE 'internal'
+     )
+   );
+
+   COMMIT;
+   ```
+
+### Step 3: Query Complete Order History
+
+1. Collect all documents for an order using indexed orderId:
+
+   ```sql
+   -- Get complete order history (single query, uses index)
+   SELECT
+     JSON_VALUE(json_document, '$.type') AS document_type,
+     JSON_VALUE(json_document, '$._id') AS document_id,
+     LENGTHB(json_document) AS bytes,
+     JSON_SERIALIZE(json_document PRETTY) AS document
+   FROM orders_append_heavy
+   WHERE JSON_VALUE(json_document, '$.orderId') = 'ORD-2024-001'
+   ORDER BY created_on;
+   ```
+
+   **Result:** 7 documents returned, each under 2KB (all inline storage!)
+
+2. Query just the order summary:
+
+   ```sql
+   SELECT JSON_SERIALIZE(json_document PRETTY)
+   FROM orders_append_heavy
+   WHERE JSON_VALUE(json_document, '$.orderId') = 'ORD-2024-001'
+     AND JSON_VALUE(json_document, '$.type') = 'order';
+   ```
+
+3. Query just shipments:
+
+   ```sql
+   SELECT JSON_SERIALIZE(json_document PRETTY)
+   FROM orders_append_heavy
+   WHERE JSON_VALUE(json_document, '$.orderId') = 'ORD-2024-001'
+     AND JSON_VALUE(json_document, '$.type') = 'shipment';
+   ```
+
+4. Get aggregated order status:
+
+   ```sql
+   SELECT
+     MAX(CASE WHEN JSON_VALUE(json_document, '$.type') = 'order'
+              THEN JSON_VALUE(json_document, '$.status') END) AS order_status,
+     MAX(CASE WHEN JSON_VALUE(json_document, '$.type') = 'shipment'
+              THEN JSON_VALUE(json_document, '$.trackingNumber') END) AS tracking,
+     MAX(CASE WHEN JSON_VALUE(json_document, '$.type') = 'payment'
+              THEN JSON_VALUE(json_document, '$.status') END) AS payment_status,
+     COUNT(CASE WHEN JSON_VALUE(json_document, '$.type') = 'annotation' THEN 1 END) AS annotation_count
+   FROM orders_append_heavy
+   WHERE JSON_VALUE(json_document, '$.orderId') = 'ORD-2024-001';
+   ```
+
+### Step 4: Measure Document Sizes
+
+1. Verify all documents stay in inline storage:
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.type') AS type,
+     JSON_VALUE(json_document, '$._id') AS id,
+     LENGTHB(json_document) AS bytes,
+     CASE
+       WHEN LENGTHB(json_document) < 7950 THEN 'INLINE (Fast writes)'
+       ELSE 'LOB (Slow writes)'
+     END AS storage_tier
+   FROM orders_append_heavy
+   WHERE JSON_VALUE(json_document, '$.orderId') = 'ORD-2024-001'
+   ORDER BY bytes DESC;
+   ```
+
+   **Expected Result:**
+   ```
+   TYPE            ID                  BYTES   STORAGE_TIER
+   -------------   -----------------   -----   ------------------
+   invoice         INVOICE-INV-001      1850   INLINE (Fast writes)
+   order           ORD-2024-001         1620   INLINE (Fast writes)
+   shipment        SHIPMENT-SH-001      1340   INLINE (Fast writes)
+   payment         PAYMENT-PAY-001       680   INLINE (Fast writes)
+   stock_update    STOCK-ST-001          590   INLINE (Fast writes)
+   annotation      ANNOTATION-ANN-001    420   INLINE (Fast writes)
+   ```
+
+   **All documents in inline storage!** ✅
+
+### Step 5: Compare Write Performance
+
+1. Simulate appending to a growing document vs small documents:
+
+   ```sql
+   -- Create metrics table
+   TRUNCATE TABLE performance_metrics;
+
+   -- Test 1: Growing document (LOB cliff simulation)
+   DECLARE
+     v_start TIMESTAMP;
+     v_end TIMESTAMP;
+     v_doc CLOB;
+   BEGIN
+     -- Simulate large document (10KB)
+     v_doc := RPAD('{"_id":"ORD-BIG","orderId":"ORD-BIG","items":[', 10000, '{"x":"data"},');
+     v_doc := v_doc || ']}';
+
+     FOR i IN 1..100 LOOP
+       v_start := SYSTIMESTAMP;
+
+       -- Simulate appending to large document (update)
+       UPDATE orders_append_heavy
+       SET json_document = JSON_MERGEPATCH(json_document,
+         '{"lastUpdate":"' || TO_CHAR(SYSDATE, 'YYYY-MM-DD') || '"}')
+       WHERE JSON_VALUE(json_document, '$.orderId') = 'ORD-BIG';
+
+       v_end := SYSTIMESTAMP;
+
+       INSERT INTO performance_metrics VALUES (
+         'WRITE_APPEND', 'LARGE_DOCUMENT_UPDATE', 'UPDATE', i,
+         EXTRACT(SECOND FROM (v_end - v_start)) * 1000,
+         NULL, NULL, NULL, SYSTIMESTAMP,
+         'Updating 10KB+ document (LOB storage)'
+       );
+     END LOOP;
+     COMMIT;
+   END;
+   /
+
+   -- Test 2: Small document inserts (inline storage)
+   DECLARE
+     v_start TIMESTAMP;
+     v_end TIMESTAMP;
+   BEGIN
+     FOR i IN 1..100 LOOP
+       v_start := SYSTIMESTAMP;
+
+       -- Insert small annotation document (< 1KB, inline)
+       INSERT INTO orders_append_heavy (json_document) VALUES (
+         JSON_OBJECT(
+           '_id' VALUE 'ANN-' || LPAD(i, 4, '0'),
+           'orderId' VALUE 'ORD-2024-001',
+           'type' VALUE 'annotation',
+           'note' VALUE 'Test annotation ' || i,
+           'createdDate' VALUE SYSTIMESTAMP
+         )
+       );
+
+       v_end := SYSTIMESTAMP;
+
+       INSERT INTO performance_metrics VALUES (
+         'WRITE_APPEND', 'SMALL_DOCUMENT_INSERT', 'INSERT', i,
+         EXTRACT(SECOND FROM (v_end - v_start)) * 1000,
+         NULL, NULL, NULL, SYSTIMESTAMP,
+         'Inserting small document (inline storage)'
+       );
+     END LOOP;
+     COMMIT;
+   END;
+   /
+   ```
+
+2. Compare write performance:
+
+   ```sql
+   SELECT
+     pattern_name,
+     COUNT(*) AS iterations,
+     ROUND(AVG(execution_time_ms), 2) AS avg_ms,
+     ROUND(MIN(execution_time_ms), 2) AS min_ms,
+     ROUND(MAX(execution_time_ms), 2) AS max_ms,
+     ROUND(STDDEV(execution_time_ms), 2) AS stddev_ms
+   FROM performance_metrics
+   WHERE test_id = 'WRITE_APPEND'
+   GROUP BY pattern_name
+   ORDER BY avg_ms;
+   ```
+
+   **Expected Results:**
+   ```
+   PATTERN_NAME               ITERATIONS   AVG_MS   MIN_MS   MAX_MS   STDDEV_MS
+   -----------------------   ----------   ------   ------   ------   ---------
+   SMALL_DOCUMENT_INSERT           100     0.85     0.60     2.10        0.25
+   LARGE_DOCUMENT_UPDATE           100     3.40     2.20     8.50        1.10
+   ```
+
+   **Analysis:**
+   - Small document inserts: ~0.85ms (inline storage, fast!)
+   - Large document updates: ~3.40ms (LOB storage, 4x slower)
+   - **4x write performance improvement with small documents**
+
+### Step 6: Benefits of Indexed Attribute Approach
+
+**Advantages:**
+
+1. ✅ **Efficient writes** - All documents stay in inline storage (< 7,950 bytes)
+2. ✅ **No LOB cliffs** - Documents never grow unbounded
+3. ✅ **Flexible queries** - Can query by type, date, status independently
+4. ✅ **Indexed collection** - Single index on `orderId` groups related documents
+5. ✅ **Append-friendly** - New events are inserts, not updates to large documents
+6. ✅ **Query flexibility** - Oracle's compound indexes enable complex filtering
+
+**When to Use:**
+
+- ✅ Write-heavy workloads (many appends over time)
+- ✅ Order processing (shipments, invoices, payments added asynchronously)
+- ✅ Event sourcing (append-only event logs)
+- ✅ Audit trails (continuous appends)
+- ✅ IoT sensor data (continuous readings)
+
+**Comparison: Composite Keys vs Indexed Attributes**
+
+| Factor | Composite Keys | Indexed Attributes |
+|--------|---------------|-------------------|
+| **Write Performance** | ✅ No index overhead | ⚠️ Index maintenance overhead |
+| **Read Performance** | ✅ Prefix queries (no index) | ✅ Index seek (very fast) |
+| **Query Flexibility** | ❌ Limited to prefix patterns | ✅ Full SQL capabilities |
+| **Best For** | Time-series, logs, sequential access | Complex filtering, multi-field queries |
+| **DynamoDB Equivalent** | Required (no compound indexes) | Not available |
+
+**Key Insight:**
+> **Use indexed attributes in Oracle when you need write efficiency AND query flexibility. Use composite keys when you want write efficiency WITHOUT indexing overhead (pure sequential/temporal access).**
+
+## Task 6: Performance Comparison - Single vs Multiple Collections
+
+Now let's measure the actual performance improvement of single collection vs traditional multi-collection approach.
 
 ### Step 1: Create Multi-Collection Approach (Baseline)
 

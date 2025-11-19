@@ -316,30 +316,31 @@ We will use **SQL/JSON** as the primary method, with SODA examples provided.
    ```sql
    -- Create a JSON collection using SQL
    -- This creates a table optimized for JSON documents
-
-   DECLARE
-     collection SODA_COLLECTION_T;
-   BEGIN
-     collection := DBMS_SODA.CREATE_COLLECTION('test_collection');
-   END;
-   /
+   CREATE TABLE test_collection (
+     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+     json_document JSON,
+     CONSTRAINT ensure_json CHECK (json_document IS JSON)
+   );
    ```
 
 2. Verify the collection was created:
 
    ```sql
-   SELECT table_name, json_column
-   FROM user_soda_collections;
+   SELECT table_name, column_name, data_type
+   FROM user_tab_columns
+   WHERE table_name = 'TEST_COLLECTION'
+   ORDER BY column_id;
    ```
 
    Expected output:
    ```
-   TABLE_NAME        JSON_COLUMN
-   ---------------   -----------
-   TEST_COLLECTION   JSON_DOCUMENT
+   TABLE_NAME        COLUMN_NAME     DATA_TYPE
+   ---------------   -------------   ---------
+   TEST_COLLECTION   ID              RAW
+   TEST_COLLECTION   JSON_DOCUMENT   JSON
    ```
 
-   > **Note:** Oracle automatically created a table named `TEST_COLLECTION` with a column `JSON_DOCUMENT` to store JSON documents
+   > **Note:** The table has an `ID` column (primary key) and a `JSON_DOCUMENT` column to store JSON documents
 
 ### Step 3: Insert Your First JSON Document
 
@@ -411,9 +412,15 @@ Oracle stores JSON documents in **OSON (Oracle Optimized Binary JSON)** format f
    ```sql
    SELECT
      JSON_VALUE(json_document, '$._id') AS id,
-     LENGTH(json_document) AS oson_bytes,
-     DBMS_LOB.GETLENGTH(json_document) AS actual_storage
+     LENGTH(json_document) AS oson_bytes
    FROM test_collection;
+   ```
+
+   Expected output:
+   ```
+   ID         OSON_BYTES
+   ------     ----------
+   doc001     163
    ```
 
 2. Understanding OSON performance tiers:

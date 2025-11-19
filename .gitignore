@@ -41,3 +41,4 @@ env/
 !labs/.gitkeep
 !scripts/.gitkeep
 !workshops/.gitkeep
+.lab-outputs/

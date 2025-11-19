@@ -313,15 +313,19 @@ Don't duplicate rarely-accessed customer details
 
 ```sql
 -- Create single collection for related entities
-CREATE JSON COLLECTION TABLE ecommerce_data;
-
--- Insert different entity types
-INSERT INTO ecommerce_data VALUES (
-  '{"_id": "CUSTOMER#456", "type": "customer", "name": "John Doe", ...}'
+CREATE TABLE ecommerce_data (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
 
-INSERT INTO ecommerce_data VALUES (
-  '{"_id": "CUSTOMER#456#ORDER#001", "type": "order", "customer_id": "CUSTOMER#456", ...}'
+-- Insert different entity types
+INSERT INTO ecommerce_data (json_document) VALUES (
+  '{"_id": "CUSTOMER#456", "type": "customer", "name": "John Doe"}'
+);
+
+INSERT INTO ecommerce_data (json_document) VALUES (
+  '{"_id": "CUSTOMER#456#ORDER#001", "type": "order", "customer_id": "CUSTOMER#456"}'
 );
 ```
 

@@ -103,7 +103,11 @@ Let's build a social media application with posts, likes, comments, and shares i
 
 ```sql
 -- Create the social media collection
-CREATE JSON COLLECTION TABLE social_data;
+CREATE TABLE social_data (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Insert a post with initial computed metrics
 INSERT INTO social_data (json_document) VALUES (

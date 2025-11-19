@@ -35,7 +35,11 @@ Consider an IoT application collecting temperature readings every second:
 -- 86,400 readings/day per sensor = 86,400 documents/day
 -- 100 sensors = 8.6M documents/day = 3.1B documents/year
 
-CREATE JSON COLLECTION TABLE sensor_data;
+CREATE TABLE sensor_data (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 INSERT INTO sensor_data (json_document) VALUES (
   JSON_OBJECT(
@@ -110,7 +114,11 @@ Group readings into hourly buckets:
 
 ```sql
 -- Create the sensor collection (stores both sensors and buckets)
-CREATE JSON COLLECTION TABLE sensor_data;
+CREATE TABLE sensor_data (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Insert sensor metadata document
 INSERT INTO sensor_data (json_document) VALUES (
@@ -478,7 +486,11 @@ Without bucketing: Would scan 86,400 documents in ~500-800ms
 
 ```sql
 -- Create unbucketed collection for comparison
-CREATE JSON COLLECTION TABLE sensor_data_unbucketed;
+CREATE TABLE sensor_data_unbucketed (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Load 1 hour of unbucketed data (3,600 documents)
 BEGIN

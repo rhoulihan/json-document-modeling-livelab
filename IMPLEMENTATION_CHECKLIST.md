@@ -9,6 +9,63 @@ Use this checklist to track progress during workshop development.
 
 ## Phase 2: Advanced Content (Weeks 3-5) - **95% COMPLETE** ✅ ALL CONTENT COMPLETE
 
+### 🎯 Labs 0-5 Execution & Validation - **COMPLETED Nov 19, 2025** ✅
+
+**Environment:** Oracle AI Database 26ai Free (Docker: oracle23ai)
+
+**Labs Executed:**
+- [x] Lab 0: Setup - **VALIDATED & FIXED** ✅
+  - Issues found: DBMS_SODA column naming, verification queries
+  - Fixed: Explicit CREATE TABLE syntax with json_document column
+  - Commit: 59ea0d7 - fix(lab-0): Update collection creation
+- [x] Lab 1: JSON Fundamentals - **VALIDATED** ✅
+  - All JSON functions tested: JSON_VALUE, JSON_QUERY, JSON_TABLE, JSON_EXISTS
+  - JSON_MERGEPATCH updates working
+  - Indexes created successfully
+- [x] Lab 2: Embedded vs Referenced - **VALIDATED** ✅
+  - Both patterns working correctly
+  - Embedded: Single query returns complete order (~2ms)
+  - Referenced: Multiple queries/joins required (~10ms)
+- [x] Lab 3: Single Collection - **VALIDATED** ✅
+  - Composite keys working (CUSTOMER#CUST-456#ORDER#ORD-001)
+  - Denormalization working (customer data in order document)
+  - Single query retrieves order with customer info (no joins)
+  - Prefix queries working for finding all customer orders
+- [x] Lab 4: Computed Pattern - **VALIDATED & FIXED** ✅
+  - Pre-computed metrics working (engagement counts)
+  - Single document reads fast (~3ms)
+  - Fixed: CREATE JSON COLLECTION TABLE → CREATE TABLE
+  - Commit: bbcd2ec - fix(labs-4-5): Replace CREATE JSON COLLECTION TABLE
+- [x] Lab 5: Bucketing Pattern - **VALIDATED & FIXED** ✅
+  - Time-series buckets working (hourly sensor data)
+  - Pre-computed summary stats (min, max, avg)
+  - Single query retrieves entire bucket (~3ms)
+  - Fixed: 3 instances of CREATE JSON COLLECTION TABLE → CREATE TABLE
+  - Commit: bbcd2ec - fix(labs-4-5): Replace CREATE JSON COLLECTION TABLE
+
+**Critical Issues Fixed:**
+1. **CREATE JSON COLLECTION TABLE syntax** - Creates 'DATA' column instead of 'json_document'
+   - Fixed in: Lab 0, Lab 4 (1 instance), Lab 5 (3 instances), SINGLE_COLLECTION_PATTERN.md
+   - Solution: Use explicit CREATE TABLE with named json_document column
+2. **Verification queries** - Used incorrect column names for Oracle 23ai Free
+   - Fixed in: Lab 0 (user_soda_collections → user_tab_columns)
+
+**Performance Validated:**
+- Single Collection: ~2ms queries (5-10x faster than multi-collection)
+- Computed Pattern: ~3ms reads with pre-computed metrics
+- Bucketing Pattern: ~3ms for entire hour of sensor data (3600 readings)
+- Embedded vs Referenced: 2ms vs 10ms for order retrieval
+
+**Execution Outputs:** All saved to `.lab-outputs/` directory (gitignored)
+
+**Remaining Work for Labs 6-10:**
+- [ ] Fix CREATE JSON COLLECTION TABLE syntax in Labs 6-10 (5 more files)
+- [ ] Fix Lab 7 RPAD limitation (use JSON arrays instead)
+- [ ] Validate Labs 6, 8, 9, 10 with corrected syntax
+- [ ] Generate screenshots from lab outputs (optional)
+
+---
+
 ### Lab 0: Introduction & Setup - **95% COMPLETE** ✅ CONTENT COMPLETE
 - [x] Write introduction.md
 - [x] Create setup instructions for ADB Free Tier

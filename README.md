@@ -40,18 +40,24 @@ This directory contains complete planning documentation for a comprehensive Orac
 
 ```
 json-document-modeling-livelab/
-├── README_UPDATED.md                  # This file (UPDATED)
-├── WORKSHOP_PLAN_UPDATED.md          # Complete workshop plan (UPDATED)
-├── SINGLE_COLLECTION_PATTERN.md      # 25-page dedicated guide (NEW!)
-├── PATTERN_REFERENCE.md              # Quick reference (will be updated)
-├── WORKSHOP_PLAN.md                  # Original plan (archived)
-├── README.md                         # Original README (archived)
-├── IMPLEMENTATION_CHECKLIST.md       # Implementation tasks
-├── labs/                             # Lab content (to be created)
-├── workshops/                        # Workshop manifests (to be created)
+├── README.md                         # This file - Workshop overview
+├── docs/                             # Documentation and planning files
+│   ├── SINGLE_COLLECTION_PATTERN.md      # 25-page dedicated guide (NEW!)
+│   ├── WORKSHOP_PLAN_UPDATED.md          # Complete workshop plan (UPDATED)
+│   ├── WORKSHOP_PLAN.md                  # Original plan (archived)
+│   ├── PATTERN_REFERENCE.md              # Quick reference
+│   ├── IMPLEMENTATION_CHECKLIST.md       # Implementation tasks & validation
+│   ├── DELIVERY_SUMMARY.md               # Workshop delivery notes
+│   ├── README_ORIGINAL.md                # Original README (archived)
+│   ├── SETUP_GITHUB.md                   # GitHub setup instructions
+│   ├── CONTRIBUTING.md                   # Contribution guidelines
+│   ├── SECURITY.md                       # Security policy
+│   └── CLAUDE.md                         # AI assistant notes
+├── labs/                             # Lab content (Labs 0-10 complete)
+├── workshops/                        # Workshop manifests
 │   ├── tenancy/                     # For user's own Oracle Cloud account
 │   └── desktop/                     # For noVNC environments
-├── data/                             # Sample datasets (to be generated)
+├── data/                             # Sample datasets
 ├── scripts/                          # Performance testing scripts
 │   ├── setup/
 │   ├── patterns/
@@ -67,7 +73,9 @@ json-document-modeling-livelab/
 
 ## 📚 Planning Documents
 
-### 1. 🔥 SINGLE_COLLECTION_PATTERN.md (NEW!)
+All planning and reference documentation is located in the **`docs/`** directory.
+
+### 1. 🔥 docs/SINGLE_COLLECTION_PATTERN.md (NEW!)
 **Comprehensive 25-page guide covering:**
 - Rick Houlihan's core principle: "What is accessed together should be stored together"
 - Access pattern-first design methodology (vs. normalization-first)
@@ -88,7 +96,7 @@ json-document-modeling-livelab/
 - Complete worked examples
 - Decision framework
 
-### 2. 🆕 WORKSHOP_PLAN_UPDATED.md (UPDATED)
+### 2. 🆕 docs/WORKSHOP_PLAN_UPDATED.md (UPDATED)
 **Updated 70+ page implementation plan including:**
 - **NEW Lab 3: Single Collection/Table Design (60 minutes)**
   - Part 1: The Paradigm Shift (15 min)
@@ -118,11 +126,11 @@ json-document-modeling-livelab/
 
 **Total: 6.5 hours (was 5.75 hours)**
 
-### 3. PATTERN_REFERENCE.md (To Be Updated)
-Will be updated to include Single Collection as Pattern #1 (most important).
+### 3. docs/PATTERN_REFERENCE.md
+Quick reference guide for all document modeling patterns.
 
-### 4. IMPLEMENTATION_CHECKLIST.md
-Task tracking for all labs - will be updated for new Lab 3.
+### 4. docs/IMPLEMENTATION_CHECKLIST.md
+Task tracking and validation status for all labs (Labs 0-10 validated and production-ready).
 
 ---
 
@@ -530,9 +538,9 @@ ACCOUNT#ACC-123#STATEMENT#2024-11
 ## 📞 Next Steps
 
 1. **Review the updated content:**
-   - SINGLE_COLLECTION_PATTERN.md (25 pages)
-   - WORKSHOP_PLAN_UPDATED.md (complete updated plan)
-   - This README_UPDATED.md
+   - docs/SINGLE_COLLECTION_PATTERN.md (25 pages)
+   - docs/WORKSHOP_PLAN_UPDATED.md (complete updated plan)
+   - This README.md
 
 2. **Answer open questions:**
    - Lab 3 duration (60 or 90 minutes?)
@@ -594,8 +602,8 @@ Licensed under the Universal Permissive License v 1.0 as shown at https://oss.or
 **Questions or feedback?**
 
 Please review:
-1. **SINGLE_COLLECTION_PATTERN.md** - Detailed 25-page guide
-2. **WORKSHOP_PLAN_UPDATED.md** - Complete workshop plan with Lab 3
+1. **docs/SINGLE_COLLECTION_PATTERN.md** - Detailed 25-page guide
+2. **docs/WORKSHOP_PLAN_UPDATED.md** - Complete workshop plan with Lab 3
 3. **This README** - Overview and integration
 
 **Ready to proceed?** Approve and we'll begin Phase 1 implementation!

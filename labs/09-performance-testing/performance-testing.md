@@ -29,9 +29,23 @@ In this lab, you will:
 
 ```sql
 -- Normalized approach: 3 separate collections
-CREATE JSON COLLECTION TABLE customers_normalized;
-CREATE JSON COLLECTION TABLE orders_normalized;
-CREATE JSON COLLECTION TABLE order_items_normalized;
+CREATE TABLE customers_normalized (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
+
+CREATE TABLE orders_normalized (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
+
+CREATE TABLE order_items_normalized (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Load customers
 BEGIN
@@ -90,7 +104,11 @@ END;
 
 ```sql
 -- Single Collection approach
-CREATE JSON COLLECTION TABLE ecommerce_single;
+CREATE TABLE ecommerce_single (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Create composite key index
 CREATE INDEX idx_ecommerce_single_id ON ecommerce_single (
@@ -307,7 +325,11 @@ Key Insight:
 
 ```sql
 -- Create test collection with varying document sizes
-CREATE JSON COLLECTION TABLE size_perf_test;
+CREATE TABLE size_perf_test (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Insert documents of different sizes
 BEGIN

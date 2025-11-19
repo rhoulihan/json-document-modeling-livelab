@@ -64,7 +64,11 @@ The Polymorphic Pattern is already at the core of Single Collection design (from
 
 ```sql
 -- Create transactions collection
-CREATE JSON COLLECTION TABLE transactions;
+CREATE TABLE transactions (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Type 1: Deposit
 INSERT INTO transactions (json_document) VALUES (
@@ -117,7 +121,11 @@ ORDER BY JSON_VALUE(json_document, '$.timestamp' RETURNING TIMESTAMP) DESC;
 
 ```sql
 -- Create product catalog collection
-CREATE JSON COLLECTION TABLE products;
+CREATE TABLE products (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Type 1: Book
 INSERT INTO products (json_document) VALUES (

@@ -30,7 +30,11 @@ The Subset Pattern involves storing a subset of frequently accessed data alongsi
 
 ```sql
 -- Create collection
-CREATE JSON COLLECTION TABLE social_media;
+CREATE TABLE social_media (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- User profile with subset of top friends (frequently accessed)
 INSERT INTO social_media (json_document) VALUES (
@@ -321,8 +325,17 @@ END;
 }
 
 -- ✅ GOOD: Separate collections for separate services
-CREATE JSON COLLECTION TABLE user_service;
-CREATE JSON COLLECTION TABLE banking_service;
+CREATE TABLE user_service (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
+
+CREATE TABLE banking_service (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 ```
 
 2. **Different Security Requirements**
@@ -335,8 +348,17 @@ CREATE JSON COLLECTION TABLE banking_service;
 }
 
 -- ✅ GOOD: Separate collections with different access controls
-CREATE JSON COLLECTION TABLE public_profiles;
-CREATE JSON COLLECTION TABLE sensitive_data TABLESPACE secure_tablespace;
+CREATE TABLE public_profiles (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
+
+CREATE TABLE sensitive_data (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+) TABLESPACE secure_tablespace;
 ```
 
 3. **Different Scaling Patterns**
@@ -352,8 +374,17 @@ CREATE JSON COLLECTION TABLE sensitive_data TABLESPACE secure_tablespace;
 }
 
 -- ✅ GOOD: Separate collections optimized differently
-CREATE JSON COLLECTION TABLE app_config;  -- Small, read-heavy
-CREATE JSON COLLECTION TABLE app_logs;    -- Large, write-heavy with partitioning
+CREATE TABLE app_config (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);  -- Small, read-heavy
+
+CREATE TABLE app_logs (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);  -- Large, write-heavy with partitioning
 ```
 
 4. **Completely Different Access Patterns**
@@ -369,8 +400,17 @@ CREATE JSON COLLECTION TABLE app_logs;    -- Large, write-heavy with partitionin
 }
 
 -- ✅ GOOD: Separate collections for unrelated entities
-CREATE JSON COLLECTION TABLE inventory;
-CREATE JSON COLLECTION TABLE marketing_campaigns;
+CREATE TABLE inventory (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
+
+CREATE TABLE marketing_campaigns (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 ```
 
 ### Step 2: Decision Framework

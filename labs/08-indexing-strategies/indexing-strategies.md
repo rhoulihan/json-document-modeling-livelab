@@ -43,7 +43,11 @@ SENSOR#temp001#BUCKET#2024-11-%   -- Get all buckets for sensor in November
 
 ```sql
 -- Create test collection
-CREATE JSON COLLECTION TABLE ecommerce;
+CREATE TABLE ecommerce (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Create index on _id field (composite key)
 CREATE INDEX idx_ecommerce_composite_key ON ecommerce (

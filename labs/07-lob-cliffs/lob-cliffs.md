@@ -42,7 +42,11 @@ Performance Tier         Size Range              Performance    Storage Location
 
 ```sql
 -- Create test collection
-CREATE JSON COLLECTION TABLE perf_test;
+CREATE TABLE perf_test (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Test 1: Inline document (< 7,950 bytes)
 -- Insert time: ~0.5-1ms
@@ -245,7 +249,11 @@ This query identifies:
 -- ❌ Anti-Pattern: Single large document with all fields
 -- This customer document is 250KB because it includes full order history
 
-CREATE JSON COLLECTION TABLE customers_bad;
+CREATE TABLE customers_bad (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 INSERT INTO customers_bad (json_document) VALUES (
   JSON_OBJECT(
@@ -267,7 +275,11 @@ INSERT INTO customers_bad (json_document) VALUES (
 
 -- ✅ Solution: Vertical Split - Separate hot and cold data
 
-CREATE JSON COLLECTION TABLE customers_good;
+CREATE TABLE customers_good (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Hot data: Frequently accessed (stays small)
 INSERT INTO customers_good (json_document) VALUES (
@@ -313,7 +325,11 @@ INSERT INTO customers_good (json_document) VALUES (
 ```sql
 -- ❌ Anti-Pattern: Unbounded array grows forever
 
-CREATE JSON COLLECTION TABLE social_bad;
+CREATE TABLE social_bad (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 INSERT INTO social_bad (json_document) VALUES (
   JSON_OBJECT(
@@ -328,7 +344,11 @@ INSERT INTO social_bad (json_document) VALUES (
 
 -- ✅ Solution: Horizontal Split with Composite Keys (from Lab 3)
 
-CREATE JSON COLLECTION TABLE social_good;
+CREATE TABLE social_good (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- User document (small, frequently accessed)
 INSERT INTO social_good (json_document) VALUES (
@@ -375,7 +395,11 @@ FETCH FIRST 20 ROWS ONLY;
 ```sql
 -- ✅ Solution: Archive old data to separate documents
 
-CREATE JSON COLLECTION TABLE logs_with_archive;
+CREATE TABLE logs_with_archive (
+  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+  json_document JSON,
+  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+);
 
 -- Active logs (current month)
 INSERT INTO logs_with_archive (json_document) VALUES (

@@ -37,7 +37,7 @@ When modeling relationships in document databases, you must answer:
 
 > **Should related data be stored together (embedded) or separately (referenced)?**
 
-This is the **most important decision** in document modeling, and your answer should be based on **how the data is accessed**, not how it's logically organized.
+This is a **key decision** in document modeling, and your answer should be based on **how the data is accessed**, not how it's logically organized.
 
 ### Embedded Pattern (Denormalized)
 
@@ -130,7 +130,7 @@ This is the **most important decision** in document modeling, and your answer sh
 | **Relationships** | 1-to-few (under 100 related items) | 1-to-many (over 100 related items) |
 
 **Key Principle:**
-> **"What is accessed together should be stored together."** - Rick Houlihan
+> **"What is accessed together should be stored together."**
 
 ## Task 2: Implement Embedded Pattern
 
@@ -895,7 +895,7 @@ You are now ready for **Lab 3: Single Collection/Table Design**, where you will 
 * [MongoDB Embedded vs Referenced Patterns](https://www.mongodb.com/docs/manual/data-modeling/)
 * [DynamoDB One-to-Many Relationships](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-modeling-nosql.html)
 * [Oracle JSON Collections Performance](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/performance-tuning-for-json.html)
-* [Rick Houlihan - Data Modeling with DynamoDB](https://www.youtube.com/results?search_query=rick+houlihan+data+modeling)
+* [AWS DynamoDB Data Modeling](https://aws.amazon.com/dynamodb/resources/)
 
 ## Acknowledgements
 

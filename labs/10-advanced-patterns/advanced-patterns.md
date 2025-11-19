@@ -605,7 +605,7 @@ Congratulations! You have completed the Oracle JSON Collections Document Modelin
 ## Learn More
 
 * [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/)
-* [Rick Houlihan - DynamoDB Advanced Design Patterns](https://www.youtube.com/watch?v=6yqfmXiZTlM)
+* [AWS DynamoDB Advanced Design Patterns](https://aws.amazon.com/dynamodb/resources/)
 * [MongoDB Data Modeling Patterns](https://www.mongodb.com/docs/manual/data-modeling/)
 
 ## Acknowledgments

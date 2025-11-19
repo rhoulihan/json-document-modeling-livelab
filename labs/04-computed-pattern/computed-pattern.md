@@ -797,7 +797,7 @@ In this lab, you learned how to implement the Computed Pattern for storing pre-c
 
 * [Oracle JSON Developer's Guide - JSON Collections](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/overview-of-storage-and-management-of-JSON-data.html)
 * [MongoDB Computed Pattern Documentation](https://www.mongodb.com/docs/manual/data-modeling/design-patterns/computed-pattern/)
-* [Rick Houlihan - DynamoDB Advanced Design Patterns](https://www.youtube.com/watch?v=6yqfmXiZTlM)
+* [AWS DynamoDB Advanced Design Patterns](https://aws.amazon.com/dynamodb/resources/)
 
 ## Acknowledgments
 

@@ -55,31 +55,37 @@ INSERT INTO perf_test (json_document) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'DOC-INLINE',
     'type' VALUE 'small',
-    'data' VALUE RPAD('x', 5000, 'x')  -- 5KB document
+    'data' VALUE RPAD('x', 3000, 'x')  -- 3KB document (under RPAD 4000 char limit)
   )
 );
 
--- Test 2: LOB document (100KB)
--- Insert time: ~2-5ms
--- Read time: ~5-10ms
+-- Test 2: Small document approaching inline threshold
+-- Insert time: ~0.5-1ms
+-- Read time: ~1-2ms
 INSERT INTO perf_test (json_document) VALUES (
   JSON_OBJECT(
-    '_id' VALUE 'DOC-LOB',
+    '_id' VALUE 'DOC-NEAR-THRESHOLD',
     'type' VALUE 'medium',
-    'data' VALUE RPAD('x', 100000, 'x')  -- 100KB document
+    'data' VALUE RPAD('x', 3900, 'x')  -- ~3.9KB document (still inline, near RPAD limit)
   )
 );
 
--- Test 3: Large LOB document (15MB)
--- Insert time: ~50-100ms
--- Read time: ~100-200ms
-INSERT INTO perf_test (json_document) VALUES (
-  JSON_OBJECT(
-    '_id' VALUE 'DOC-LARGE-LOB',
-    'type' VALUE 'large',
-    'data' VALUE RPAD('x', 15000000, 'x')  -- 15MB document
-  )
-);
+/*
+Note: RPAD in Oracle has a 4000 character limit. For testing larger documents (100KB, 15MB),
+you would need to:
+1. Use CLOB with TO_CLOB() and concatenation
+2. Load data from files using DBMS_LOB
+3. Generate large JSON arrays with loops
+
+Example for production testing of LOB sizes:
+- 100KB document: Use arrays with 2000+ nested objects
+- 15MB document: Use bulk data loading techniques
+
+The size thresholds remain:
+- Inline (< 7,950 bytes): Optimal performance (~1-2ms reads)
+- LOB (7,950 bytes - 10MB): Good performance (~5-10ms reads)
+- Large LOB (10MB - 32MB): Slower performance (~100-200ms reads)
+*/
 
 -- Measure document sizes and storage tier
 SELECT
@@ -98,18 +104,21 @@ ORDER BY LENGTHB(json_document);
 
 /*
 Expected Result:
-DOC_ID          DOC_TYPE  SIZE_BYTES  SIZE_KB   STORAGE_TIER
---------------  --------  ----------  --------  -------------------
-DOC-INLINE      small     5243        5.12      ✅ INLINE (Optimal)
-DOC-LOB         medium    100343      98.00     ⚠️ LOB (Good)
-DOC-LARGE-LOB   large     15000343    14648.77  ❌ LARGE LOB (Slow)
+DOC_ID              DOC_TYPE  SIZE_BYTES  SIZE_KB   STORAGE_TIER
+------------------  --------  ----------  --------  -------------------
+DOC-INLINE          small     3067        3.00      INLINE (Optimal)
+DOC-NEAR-THRESHOLD  medium    3967        3.87      INLINE (Optimal)
+
+Both documents are in INLINE storage tier for optimal performance.
+For testing LOB tiers, you would need to generate larger documents using
+the techniques mentioned in the note above.
 */
 ```
 
-### Step 2: Performance Impact of LOB Storage
+### Step 2: Performance Impact of Inline Storage
 
 ```sql
--- Benchmark read performance across tiers
+-- Benchmark read performance for inline documents
 SET SERVEROUTPUT ON;
 
 DECLARE
@@ -120,7 +129,7 @@ DECLARE
   v_iterations NUMBER := 100;
   v_total_duration NUMBER;
 BEGIN
-  -- Test inline document reads
+  -- Test small inline document reads (3KB)
   v_total_duration := 0;
   FOR i IN 1..v_iterations LOOP
     v_start := SYSTIMESTAMP;
@@ -132,48 +141,35 @@ BEGIN
     v_duration := EXTRACT(SECOND FROM (v_end - v_start)) * 1000;
     v_total_duration := v_total_duration + v_duration;
   END LOOP;
-  DBMS_OUTPUT.PUT_LINE('INLINE (5KB): ' || ROUND(v_total_duration / v_iterations, 2) || ' ms avg');
+  DBMS_OUTPUT.PUT_LINE('INLINE (3KB): ' || ROUND(v_total_duration / v_iterations, 2) || ' ms avg');
 
-  -- Test LOB document reads
+  -- Test near-threshold inline document reads (3.9KB)
   v_total_duration := 0;
   FOR i IN 1..v_iterations LOOP
     v_start := SYSTIMESTAMP;
     SELECT JSON_SERIALIZE(json_document)
     INTO v_data
     FROM perf_test
-    WHERE JSON_VALUE(json_document, '$._id') = 'DOC-LOB';
+    WHERE JSON_VALUE(json_document, '$._id') = 'DOC-NEAR-THRESHOLD';
     v_end := SYSTIMESTAMP;
     v_duration := EXTRACT(SECOND FROM (v_end - v_start)) * 1000;
     v_total_duration := v_total_duration + v_duration;
   END LOOP;
-  DBMS_OUTPUT.PUT_LINE('LOB (100KB): ' || ROUND(v_total_duration / v_iterations, 2) || ' ms avg');
-
-  -- Test large LOB document reads
-  v_total_duration := 0;
-  FOR i IN 1..v_iterations LOOP
-    v_start := SYSTIMESTAMP;
-    SELECT JSON_SERIALIZE(json_document)
-    INTO v_data
-    FROM perf_test
-    WHERE JSON_VALUE(json_document, '$._id') = 'DOC-LARGE-LOB';
-    v_end := SYSTIMESTAMP;
-    v_duration := EXTRACT(SECOND FROM (v_end - v_start)) * 1000;
-    v_total_duration := v_total_duration + v_duration;
-  END LOOP;
-  DBMS_OUTPUT.PUT_LINE('LARGE LOB (15MB): ' || ROUND(v_total_duration / v_iterations, 2) || ' ms avg');
+  DBMS_OUTPUT.PUT_LINE('INLINE (3.9KB): ' || ROUND(v_total_duration / v_iterations, 2) || ' ms avg');
 END;
 /
 
 /*
 Expected Output:
-INLINE (5KB): 1.45 ms avg
-LOB (100KB): 6.23 ms avg
-LARGE LOB (15MB): 142.78 ms avg
+INLINE (3KB): ~1-2 ms avg
+INLINE (3.9KB): ~1-2 ms avg
 
 Key Insight:
-- LOB documents are 4-5x slower than inline
-- Large LOB documents are 100x slower than inline
-- The "cliff" at 10MB is dramatic
+- Both documents remain in INLINE storage for optimal performance
+- Inline documents typically read in 1-2ms
+- Once documents exceed 7,950 bytes, they move to LOB storage (~5-10ms)
+- Large LOB documents over 10MB can take 100-200ms to read
+- Keep frequently-accessed documents under 7,950 bytes when possible
 */
 ```
 

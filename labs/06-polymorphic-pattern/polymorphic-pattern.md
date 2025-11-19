@@ -208,28 +208,31 @@ CREATE INDEX idx_products_category ON products (
 );
 ```
 
-### Step 3: Type-Specific Partial Indexes
+### Step 3: Type-Specific Indexes
+
+> **Note:** Oracle Database doesn't support partial indexes with WHERE clauses like PostgreSQL. Instead, create regular indexes on type-specific fields and rely on the type discriminator index for filtering.
 
 ```sql
--- Index only for deposits (partial index)
+-- Index for deposit-specific queries (source lookup)
 CREATE INDEX idx_deposits_source ON transactions (
   JSON_VALUE(json_document, '$.source'),
   JSON_VALUE(json_document, '$.amount' RETURNING NUMBER)
-)
-WHERE JSON_VALUE(json_document, '$.type') = 'deposit';
+);
 
--- Index only for books (ISBN lookup)
+-- Index for book-specific queries (ISBN lookup)
 CREATE INDEX idx_books_isbn ON products (
   JSON_VALUE(json_document, '$.isbn')
-)
-WHERE JSON_VALUE(json_document, '$.type') = 'book';
+);
 
--- Index only for electronics (brand + model)
-CREATE INDEX idx_electronics_brand_model ON products (
-  JSON_VALUE(json_document, '$.brand'),
-  JSON_VALUE(json_document, '$.model')
-)
-WHERE JSON_VALUE(json_document, '$.type') = 'electronics';
+-- Index for electronics-specific queries (brand lookup)
+CREATE INDEX idx_electronics_brand ON products (
+  JSON_VALUE(json_document, '$.brand')
+);
+
+-- These indexes work in combination with the type discriminator index
+-- Query optimizer will use both indexes when you filter by type AND field:
+-- WHERE JSON_VALUE(json_document, '$.type') = 'book'
+--   AND JSON_VALUE(json_document, '$.isbn') = '978-0-123456-78-9'
 ```
 
 ## Task 4: Querying Polymorphic Collections

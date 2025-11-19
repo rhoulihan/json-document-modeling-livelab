@@ -633,7 +633,7 @@ LIMIT: 32MB maximum
 
 ## Task 5: Write-Heavy Orders - Indexed Attributes Approach
 
-In real-world e-commerce, orders don't arrive complete - they grow over time with multiple append operations: shipments, invoices, payments, stock updates, and annotations. This causes documents to bloat and hit LOB storage, making writes inefficient.
+In real-world e-commerce, orders don't arrive complete - they grow over time with multiple append operations: shipments, invoices, payments, stock updates, and annotations. This causes documents to bloat and cross into LOB storage, making writes inefficient.
 
 **The Problem:**
 

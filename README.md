@@ -7,26 +7,26 @@
 
 ---
 
-## 🔥 MAJOR UPDATE: Single Collection/Table Design Pattern
+## Workshop Update: Single Collection/Table Design Pattern
 
-This workshop now features a **dedicated 60-minute lab on the Single Collection/Table Design Pattern**, recognized as the **most critical pattern in NoSQL data modeling** for:
+This workshop now includes a dedicated lab on the Single Collection/Table Design Pattern, an important approach in NoSQL data modeling for:
 
-✨ **Avoiding LOB performance cliffs** (Oracle's 32MB OSON limit)
-✨ **Achieving 10-20x query performance improvements**
-✨ **Eliminating application-side joins**
-✨ **Access pattern-first design methodology**
-✨ **Strategic denormalization frameworks**
+- Avoiding LOB performance cliffs (Oracle's 32MB OSON limit)
+- Improving query performance through denormalization
+- Eliminating application-side joins
+- Access pattern-first design methodology
+- Strategic denormalization strategies
 
-### Based on Industry-Leading Guidance:
-- **Rick Houlihan's DynamoDB Single Table Design** (AWS, 2024)
-- **MongoDB Single Collection Pattern** (current best practices)
-- **Oracle JSON Collections 23ai/26ai** specific optimizations
+### Based on Industry Practices:
+- DynamoDB single table design patterns
+- MongoDB single collection patterns
+- Oracle JSON Collections 23ai/26ai optimizations
 
 ---
 
 ## 📋 Overview
 
-This directory contains complete planning documentation for a comprehensive Oracle LiveLabs workshop on document data modeling for Oracle JSON Collections, with **critical focus on the Single Collection/Table Design pattern** as the foundation for high-performance NoSQL design.
+This directory contains complete planning documentation for a comprehensive Oracle LiveLabs workshop on document data modeling for Oracle JSON Collections, covering essential patterns for high-performance NoSQL design.
 
 ### Workshop Details
 - **Duration:** 6.5 hours (UPDATED from 5.75)
@@ -75,22 +75,22 @@ json-document-modeling-livelab/
 
 All planning and reference documentation is located in the **`docs/`** directory.
 
-### 1. 🔥 docs/SINGLE_COLLECTION_PATTERN.md (NEW!)
-**Comprehensive 25-page guide covering:**
-- Rick Houlihan's core principle: "What is accessed together should be stored together"
+### 1. docs/SINGLE_COLLECTION_PATTERN.md
+**Comprehensive guide covering:**
 - Access pattern-first design methodology (vs. normalization-first)
+- Core principle: "What is accessed together should be stored together"
 - Composite key strategies (delimiter-based, hierarchical, date-based)
 - Strategic denormalization framework (what to duplicate, what not to)
 - Avoiding LOB cliffs through intelligent data organization
 - Complete e-commerce system example
-- Performance benchmarks (10-20x improvements)
+- Performance benchmarks and considerations
 - Anti-patterns to avoid
 - MongoDB and DynamoDB best practices applied to Oracle
 
 **Key Sections:**
 - The Paradigm Shift: RDBMS vs NoSQL
 - Core Concepts (access patterns, denormalization, composite keys, polymorphic docs)
-- Rick Houlihan's guidance (what to do, what NOT to do)
+- Industry guidance and best practices
 - MongoDB Single Collection best practices
 - Oracle-specific implementation
 - Complete worked examples
@@ -134,63 +134,65 @@ Task tracking and validation status for all labs (Labs 0-10 validated and produc
 
 ---
 
-## 🎯 Updated Workshop Learning Objectives
+## 🎯 Workshop Learning Objectives
 
 Students will learn to:
-1. **✨ Master the Single Collection/Table Design pattern** (access pattern-first approach)
-2. **✨ Design using composite keys** for hierarchical relationships
-3. **✨ Implement strategic denormalization** to avoid application joins
-4. Understand fundamental differences between relational and document data modeling
+1. Understand fundamental differences between relational and document data modeling
+2. Apply access pattern-first design methodology
+3. Design using composite keys for hierarchical relationships
+4. Implement strategic denormalization to avoid application joins
 5. Identify appropriate document modeling patterns for specific use cases
 6. Implement embedded, referenced, computed, and bucketing patterns
-7. **Avoid LOB performance cliffs** through intelligent data organization
+7. Avoid LOB performance cliffs through intelligent data organization
 8. Apply multivalue indexes and Oracle-specific optimizations
-9. **Measure 10-20x query performance improvements**
+9. Measure query performance improvements with different patterns
 10. Design document models that maximize efficiency for workload access patterns
 
 ---
 
-## 🏗️ Workshop Structure (UPDATED)
+## 🏗️ Workshop Structure
 
-### Core Principle Foundation
+### Access Pattern-First Design
 
-**Lab 3: Single Collection/Table Design** establishes the foundation:
+**Lab 3: Single Collection/Table Design** introduces a core NoSQL modeling approach:
 
 ```
 Access Pattern Analysis → Composite Key Design → Strategic Denormalization → Single Collection Implementation
 ```
 
-**Rick Houlihan's Principle:**
+**Core Principle:**
 > "What is accessed together should be stored together, and how that data is stored should be influenced by how it is accessed."
 
-### Integration Across Labs
+This access pattern-first methodology was developed by my team at Amazon to model DynamoDB workloads and has been broadly adopted across the NoSQL industry.
 
-All subsequent labs build on or integrate with the Single Collection pattern:
+### Pattern Integration Across Labs
 
-- **Lab 4 (Computed):** Store computed aggregates in same collection with composite keys
-- **Lab 5 (Bucketing):** Use composite keys for time buckets within single collection
-- **Lab 6 (Polymorphic):** Multiple entity types with composite key discrimination
-- **Lab 7 (LOB Cliffs):** Validate that Single Collection approach prevents issues
-- **Lab 8 (Indexing):** Index strategies for composite keys and polymorphic collections
-- **Lab 9 (Performance):** Benchmark Single vs Multiple Collections (expect 10-20x improvement)
+The workshop covers multiple complementary patterns:
+
+- **Lab 4 (Computed):** Pre-calculated aggregations for performance
+- **Lab 5 (Bucketing):** Time-series data organization
+- **Lab 6 (Polymorphic):** Multiple entity types with type discrimination
+- **Lab 7 (LOB Cliffs):** Document size management strategies
+- **Lab 8 (Indexing):** Index strategies for composite keys and polymorphic documents
+- **Lab 9 (Performance):** Benchmark different modeling approaches
 - **Lab 10 (Advanced):** Subset pattern, schema versioning, migration strategies
 
 ---
 
 ## 💡 The Single Collection Pattern - Quick Overview
 
-### Traditional Approach (WRONG for NoSQL)
+### Traditional Normalized Approach
 
 ```
 Design Process: Entities → Normalize → Create Collections → Write Queries
-Result: Multiple collections, application joins, slower queries, complex code
+Result: Multiple collections, application joins, potentially slower queries, complex code
 ```
 
-### Single Collection Approach (CORRECT for NoSQL)
+### Single Collection Approach
 
 ```
 Design Process: Access Patterns → Composite Keys → Denormalize → Single Collection
-Result: One collection, no joins, 10-20x faster queries, simple code
+Result: One collection, no joins, optimized queries, simplified application code
 ```
 
 ### Example: E-commerce System
@@ -350,22 +352,15 @@ ACCOUNT#ACC-123#STATEMENT#2024-11
 
 ---
 
-## 🎓 Key Patterns Covered (UPDATED)
+## 🎓 Key Patterns Covered
 
-### Foundation Pattern
-**1. Single Collection/Table Design** ⭐ **MOST IMPORTANT**
-   - Access pattern-first methodology
-   - Composite key strategies
-   - Strategic denormalization
-   - Avoids LOB cliffs
-   - 10-20x performance improvement
-
-### Supporting Patterns
-2. **Embedded** - Data accessed together (within Single Collection)
-3. **Referenced** - When denormalization isn't appropriate
-4. **Computed** - Pre-calculated aggregations (in same collection)
-5. **Bucketing** - Time-series with composite keys
-6. **Polymorphic** - Multiple types in Single Collection
+### Core Modeling Patterns
+1. **Single Collection/Table Design** - Access pattern-first methodology, composite key strategies, strategic denormalization
+2. **Embedded** - Data accessed together stored together
+3. **Referenced** - When normalization is appropriate
+4. **Computed** - Pre-calculated aggregations for performance
+5. **Bucketing** - Time-series data organization
+6. **Polymorphic** - Multiple entity types in one collection
 7. **Subset** - Frequently vs rarely accessed data
 8. **Extended Reference** - Denormalize key fields only
 
@@ -381,44 +376,40 @@ ACCOUNT#ACC-123#STATEMENT#2024-11
 
 ## ✅ Review Checklist (UPDATED)
 
-### ✨ New Content to Review
+### Content Review Checklist
 
-- [ ] **SINGLE_COLLECTION_PATTERN.md** (25 pages)
-  - [ ] Rick Houlihan's guidance accurately represented
-  - [ ] MongoDB best practices correctly applied
+- [ ] **SINGLE_COLLECTION_PATTERN.md**
+  - [ ] Industry best practices accurately represented
+  - [ ] MongoDB and DynamoDB patterns correctly applied
   - [ ] Oracle-specific implementation clear
   - [ ] Examples complete and realistic
   - [ ] Anti-patterns well documented
 
 - [ ] **Lab 3: Single Collection/Table Design**
-  - [ ] 60 minutes appropriate duration (or needs 90?)
+  - [ ] 60 minutes appropriate duration
   - [ ] Part 1-4 flow makes sense
   - [ ] Hands-on exercises sufficient
   - [ ] Performance comparisons realistic
   - [ ] Connects to other labs
 
-- [ ] **Integration Across Labs**
+- [ ] **Pattern Integration Across Labs**
   - [ ] Labs 4-10 properly integrated
-  - [ ] Composite key usage consistent
+  - [ ] Pattern usage consistent
   - [ ] No contradictions in guidance
   - [ ] Progressive complexity appropriate
 
-### Open Questions (NEW)
+### Open Questions
 
-1. **Lab 3 Duration:** Is 60 minutes sufficient or should it be 90 minutes given the importance?
-
-2. **Composite Key Notation:** Which to emphasize?
-   - Option A: Delimiter-based `CUSTOMER#456#ORDER#001` (DynamoDB style)
-   - Option B: Hierarchical object `{"customer_id": "456", "order_id": "001"}` (JSON-native)
+1. **Composite Key Notation:** Which to emphasize?
+   - Option A: Delimiter-based `CUSTOMER#456#ORDER#001`
+   - Option B: Hierarchical object `{"customer_id": "456", "order_id": "001"}`
    - Option C: Both with pros/cons discussion
 
-3. **Rick Houlihan Attribution:** Include links to his talks/presentations or just reference his principles?
+2. **Migration Content:** Should we include a migration guide from normalized to single collection?
 
-4. **Migration Content:** Should we include a migration guide from normalized to Single Collection? (Valuable for existing apps)
+3. **Performance Metrics:** How to present performance improvements realistically?
 
-5. **Performance Guarantees:** Say "10-20x improvement" or "up to 20x" to be safe?
-
-6. **Workshop Split:** Keep as one comprehensive workshop or split into:
+4. **Workshop Split:** Keep as one comprehensive workshop or split into:
    - Beginner: Labs 0-3 (foundation)
    - Advanced: Labs 4-10 (patterns)
 
@@ -433,27 +424,26 @@ ACCOUNT#ACC-123#STATEMENT#2024-11
 
 ## 🎯 Success Metrics (UPDATED)
 
-### Learning Outcomes (Updated Targets)
-- **95%+** students understand access pattern-first design ⭐
-- **90%+** students can design composite key structures ⭐
-- **90%+** students can implement denormalization strategies ⭐
+### Learning Outcomes
+- **90%+** students understand access pattern-first design
+- **90%+** students can design composite key structures
+- **90%+** students can implement denormalization strategies
 - **90%+** students can identify appropriate pattern for given use case
 - **80%+** students can implement at least 5 different patterns
 - **75%+** students can create appropriate indexes
 - **85%+** students understand OSON limits and mitigation
 
-### Performance Metrics (Updated)
-- Students can demonstrate **10-20x** query improvement with Single Collection ⭐
-- Students can demonstrate **5x+** improvement with pattern optimization
+### Performance Metrics
+- Students can demonstrate query improvements with different patterns
 - Students can identify and fix LOB performance issues
 - Students can measure and reduce network roundtrips
+- Students can benchmark and compare different modeling approaches
 
-### Engagement Metrics (Updated)
+### Engagement Metrics
 - Completion rate target: **70%+**
 - Satisfaction rating target: **4.5/5**
 - Would recommend: **85%+**
-- **NEW:** "Most valuable lab" target: **Lab 3 (60%+)**
-- **NEW:** "Will apply to real projects" target: **80%+**
+- "Will apply to real projects" target: **80%+**
 
 ---
 
@@ -496,14 +486,14 @@ ACCOUNT#ACC-123#STATEMENT#2024-11
 
 ---
 
-## 📖 Research Summary (UPDATED)
+## 📖 Research Summary
 
-### Single Collection/Table Design (NEW)
-- ✅ **Rick Houlihan (AWS DynamoDB):**
+### Single Collection/Table Design
+- ✅ **DynamoDB Single Table Design:**
   - Core principle: "Access together, store together"
-  - 2024 clarification: Don't mix unrelated data
-  - Index Overloading pattern now deprecated
-  - Single table within service boundaries only
+  - Don't mix unrelated data
+  - Single table within service boundaries
+  - Composite key strategies
 
 - ✅ **MongoDB Single Collection:**
   - Polymorphic pattern with discriminator field
@@ -560,35 +550,37 @@ ACCOUNT#ACC-123#STATEMENT#2024-11
 
 ---
 
-## 🚀 Why This Update Matters
+## 🚀 Key Workshop Benefits
 
-### The Single Collection Pattern is Critical Because:
+### Comprehensive Pattern Coverage
 
-1. **Prevents LOB Cliffs Before They Happen**
-   - Documents stay small (< 10KB)
-   - No unbounded arrays
-   - Predictable growth
+This workshop provides practical guidance on multiple document modeling patterns:
 
-2. **Achieves Dramatic Performance Gains**
-   - 10-20x faster queries
-   - 3x fewer network roundtrips
-   - Simpler application code
+1. **LOB Cliff Prevention**
+   - Keep documents appropriately sized
+   - Avoid unbounded arrays
+   - Design for predictable growth
 
-3. **Aligns with Industry Best Practices**
-   - DynamoDB Single Table Design (Rick Houlihan)
-   - MongoDB Single Collection Pattern
+2. **Performance Optimization**
+   - Access pattern-first design
+   - Reduced network roundtrips
+   - Simplified application code
+
+3. **Industry Best Practices**
+   - DynamoDB and MongoDB patterns adapted for Oracle
    - Access pattern-first methodology
+   - Strategic denormalization approaches
 
-4. **Oracle-Specific Optimization**
-   - Leverages OSON format efficiently
+4. **Oracle-Specific Features**
+   - Leverage OSON format efficiently
    - Composite key indexing strategies
-   - Stays within 32MB limit naturally
+   - Stay within OSON limits naturally
 
-5. **Foundation for All Other Patterns**
-   - Other patterns enhance Single Collection
-   - Computed: Same collection
-   - Bucketing: Composite keys
-   - Polymorphic: Type discrimination
+5. **Complementary Patterns**
+   - Multiple patterns for different use cases
+   - Computed aggregations
+   - Bucketing for time-series
+   - Polymorphic documents
 
 ---
 

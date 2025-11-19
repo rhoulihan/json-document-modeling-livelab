@@ -1,23 +1,25 @@
 # Single Collection/Table Design Pattern
-## The Foundation of NoSQL Data Modeling
+## A Core NoSQL Data Modeling Approach
 
-**Status:** Critical Pattern for Oracle JSON Collections Performance
-**Based on:** MongoDB Single Collection Pattern, DynamoDB Single Table Design (Rick Houlihan)
+**Status:** Important Pattern for Oracle JSON Collections Performance
+**Based on:** MongoDB Single Collection Pattern, DynamoDB Single Table Design
 
 ---
 
 ## Executive Summary
 
-The **Single Collection/Table Design** pattern is the most important and fundamental pattern in NoSQL data modeling. It represents a paradigm shift from relational database design and is **critical for avoiding LOB performance cliffs** in Oracle JSON Collections.
+The **Single Collection/Table Design** pattern is an important approach in NoSQL data modeling. It represents a paradigm shift from relational database design and helps avoid LOB performance cliffs in Oracle JSON Collections.
 
-### Core Principle (Rick Houlihan, 2024)
+### Core Principle
 
 > **"What is accessed together should be stored together, and how that data is stored should be influenced by how it is accessed."**
 
-### Why This Pattern is Critical for Oracle JSON Collections
+This access pattern-first methodology was developed to model DynamoDB workloads at Amazon and has been broadly adopted across the NoSQL industry.
 
-1. **Avoids the 32MB OSON limit** by keeping documents lean through strategic denormalization
-2. **Eliminates application-side joins** - all related data retrieved in single query
+### Benefits for Oracle JSON Collections
+
+1. **Helps avoid the 32MB OSON limit** by keeping documents appropriately sized
+2. **Eliminates application-side joins** - related data retrieved in single query
 3. **Optimizes for access patterns** rather than normalization
 4. **Reduces network round-trips** from multiple collections to one
 5. **Enables atomic updates** across related entities
@@ -68,12 +70,12 @@ QUERY PATTERN: Single query returns complete result
 
 **Start with questions, not entities:**
 
-❌ **Wrong Approach:**
+**Normalized Approach:**
 ```
 "I have Users, Orders, and Products. Let me create 3 collections."
 ```
 
-✅ **Correct Approach:**
+**Access Pattern-First Approach:**
 ```
 "What queries will my application make?
 - Get order with customer info and all items (90% of queries)
@@ -210,19 +212,19 @@ WHERE JSON_VALUE(data, '$._id') LIKE 'CUSTOMER#CUST-456#ORDER#ORD-001%';
 
 ---
 
-## Rick Houlihan's Single Table Design (DynamoDB → Oracle JSON)
+## DynamoDB Single Table Design Applied to Oracle JSON
 
-### DynamoDB Principles Applied to Oracle JSON Collections
+### Core Principles Applied to Oracle JSON Collections
 
-Rick Houlihan's approach from AWS:
+Key principles from DynamoDB single table design:
 
-1. **Store all entities in one table** (collection)
+1. **Store related entities in one table** (collection)
 2. **Use composite keys** for entity identification
 3. **Denormalize for access patterns** (not for normalization)
 4. **Create indexes** for alternate access patterns
 5. **Keep documents lean** - avoid unbounded arrays
 
-### What Rick Said NOT to Do (2024 Clarification)
+### What NOT to Do - Important Clarifications
 
 ❌ **Mixing configuration and operational data**
 ```json
@@ -860,13 +862,15 @@ Based on Oracle JSON Collections testing:
 
 ## References
 
-- **Rick Houlihan** (AWS DynamoDB): Single Table Design principles
-  - 2024 clarification: Store accessed-together data together
+- **AWS DynamoDB**: Single Table Design patterns
+  - Store accessed-together data together
   - Don't mix unrelated data or cross service boundaries
+  - Composite key strategies
 
 - **MongoDB**: Single Collection Pattern
   - Use polymorphic documents for related entities
   - Avoid unbounded arrays
+  - Access pattern-first design
 
 - **Oracle JSON Collections**: 23ai/26ai documentation
   - Composite keys with _id field

@@ -2,11 +2,11 @@
 
 ## Introduction
 
-Welcome to the most critical lab in this workshop! The **Single Collection/Table Design pattern** represents a fundamental paradigm shift from relational database design and is the key to achieving 10-20x query performance improvements while avoiding LOB performance cliffs in Oracle JSON Collections.
+The **Single Collection/Table Design pattern** is an important NoSQL modeling approach that differs from traditional relational database design. This pattern can help improve query performance while avoiding LOB performance cliffs in Oracle JSON Collections.
 
-This pattern is based on Rick Houlihan's DynamoDB Single Table Design methodology and MongoDB's Single Collection pattern, adapted for Oracle JSON Collections with OSON binary format.
+This pattern draws from DynamoDB Single Table Design and MongoDB's Single Collection pattern, adapted for Oracle JSON Collections with OSON binary format. The access pattern-first methodology was developed at Amazon to model DynamoDB workloads and has been broadly adopted across the NoSQL industry.
 
-By the end of this lab, you will understand how to design document models that store multiple entity types in a single collection, use composite keys for efficient queries, apply strategic denormalization, and achieve predictable sub-5ms query latency at scale.
+By the end of this lab, you will understand how to design document models that store multiple entity types in a single collection, use composite keys for efficient queries, apply strategic denormalization, and achieve predictable query latency at scale.
 
 Estimated Time: 60 minutes
 
@@ -15,12 +15,12 @@ Estimated Time: 60 minutes
 In this lab, you will:
 
 * Understand the paradigm shift from entity-first (RDBMS) to access pattern-first (NoSQL) design
-* Learn Rick Houlihan's core principle: "What is accessed together should be stored together"
+* Learn the core principle: "What is accessed together should be stored together"
 * Implement composite key strategies (delimiter-based, hierarchical, date-based)
 * Apply strategic denormalization to eliminate application-level joins
 * Store multiple entity types in a single collection using polymorphic documents
 * Avoid the 32MB OSON limit and LOB performance cliffs
-* Measure 10-20x query performance improvements over multi-collection approach
+* Measure query performance improvements over multi-collection approach
 * Design for common access patterns in e-commerce scenarios
 
 ### Prerequisites
@@ -108,7 +108,7 @@ Access Pattern 3: Search products
 ```
 
 **Key Insight:**
-> **"In cloud computing, storage is cheap but compute (query time) is expensive. Optimize for query performance, not storage minimization."** - Rick Houlihan
+> **"In cloud computing, storage is cheap but compute (query time) is expensive. Optimize for query performance, not storage minimization."**
 
 ## Task 2: Composite Key Strategies
 
@@ -120,7 +120,7 @@ Composite keys enable you to store multiple entity types in one collection while
 
 A composite key combines multiple identifiers into a single `_id` field to represent hierarchical relationships.
 
-**DynamoDB Context (Rick Houlihan's Original Pattern):**
+**DynamoDB Context:**
 
 In DynamoDB, composite keys are **essential** because:
 - ❌ DynamoDB does NOT support compound indexes
@@ -365,7 +365,7 @@ Strategic denormalization is the practice of intentionally duplicating data that
 | Data is large (over 10KB)? | ❌ No | Product images, full descriptions |
 | Strong consistency required? | ❌ No | Financial balances |
 
-**Rick Houlihan's Guidance (2024):**
+**Industry Guidance:**
 
 > **DO denormalize:**
 > - Data accessed together by a single access pattern
@@ -1477,7 +1477,7 @@ Let's implement a complete e-commerce system using Single Collection pattern.
 }
 ```
 
-**Why bad:** No shared access patterns, violates Rick Houlihan's 2024 guidance
+**Why bad:** No shared access patterns, violates single collection principles
 
 **✅ Solution:** Separate collections for unrelated domains
 
@@ -1516,7 +1516,7 @@ Let's implement a complete e-commerce system using Single Collection pattern.
 
 **❌ Anti-Pattern 4: Index Overloading (Deprecated)**
 
-Rick Houlihan's 2019 pattern (now deprecated in 2024):
+An older DynamoDB pattern (now deprecated):
 
 ```json
 // DEPRECATED: Don't use generic GSI keys
@@ -1534,17 +1534,17 @@ Rick Houlihan's 2019 pattern (now deprecated in 2024):
 
 ## Summary
 
-Congratulations! You have mastered the **Single Collection/Table Design pattern** - the most critical NoSQL pattern for Oracle JSON Collections.
+Congratulations! You have learned the **Single Collection/Table Design pattern** - an important NoSQL modeling approach for Oracle JSON Collections.
 
 ### What You Learned
 
 * ✅ The paradigm shift from entity-first to access pattern-first design
-* ✅ Rick Houlihan's principle: "What is accessed together should be stored together"
+* ✅ Core principle: "What is accessed together should be stored together"
 * ✅ Composite key strategies (delimiter-based, hierarchical, date-based)
 * ✅ Strategic denormalization framework (when to denormalize, when not to)
 * ✅ Storing multiple entity types in single collection (polymorphic documents)
 * ✅ Avoiding the 32MB OSON limit and LOB performance cliffs
-* ✅ Measuring 10-20x query performance improvements
+* ✅ Measuring query performance improvements
 * ✅ Real-world e-commerce implementation
 * ✅ Anti-patterns to avoid
 
@@ -1552,7 +1552,7 @@ Congratulations! You have mastered the **Single Collection/Table Design pattern*
 
 - **Single Collection: 1-2ms** average query time
 - **Multi Collection: 20-30ms** average query time
-- **Improvement: 10-20x faster**
+- **Improvement: Up to 15x faster in this scenario**
 - **P99 latency: 3ms vs 38ms** (more predictable)
 
 ### Design Checklist
@@ -1579,19 +1579,17 @@ In the remaining labs (4-10), you will learn:
 - **Lab 9:** Performance Testing & Benchmarking
 - **Lab 10:** JSON Duality Views & Best Practices
 
-**You are now equipped with the most powerful NoSQL design pattern!** 🚀
+You can now apply this pattern to your own workloads!
 
 ## Learn More
 
-* [Rick Houlihan - DynamoDB Single Table Design (AWS re:Invent)](https://www.youtube.com/results?search_query=rick+houlihan+reinvent+2019)
-* [Rick Houlihan - 2024 Clarifications on Single Table Design](https://www.youtube.com/watch?v=FvFFHiT0R7g)
-* [MongoDB Single Collection Pattern](https://www.mongodb.com/docs/manual/data-modeling/)
+* [AWS DynamoDB Single Table Design Patterns](https://aws.amazon.com/blogs/database/single-table-vs-multi-table-design-in-amazon-dynamodb/)
+* [MongoDB Data Modeling](https://www.mongodb.com/docs/manual/data-modeling/)
 * [Oracle JSON Collections Performance](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/performance-tuning-for-json.html)
 * [OSON Binary Format](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/oson-format.html)
 
 ## Acknowledgements
 
 * **Author** - Rick Houlihan
-* **Based on** - Rick Houlihan (AWS), MongoDB Engineering Team
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
 * **Last Updated By/Date** - Rick Houlihan, November 2024

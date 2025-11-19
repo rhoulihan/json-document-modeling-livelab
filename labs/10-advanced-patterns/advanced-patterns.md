@@ -35,7 +35,14 @@ CREATE TABLE social_media (
   json_document JSON,
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
+```
 
+**Expected output:**
+```
+Table created.
+```
+
+```sql
 -- User profile with subset of top friends (frequently accessed)
 INSERT INTO social_media (json_document) VALUES (
   JSON_OBJECT(
@@ -80,12 +87,56 @@ INSERT INTO social_media (json_document) VALUES (
   )
 );
 
+COMMIT;
+```
+
+**Expected output:**
+```
+1 row created.
+1 row created.
+1 row created.
+Commit complete.
+```
+
+```sql
 -- Query 1: Get user profile with top friends (fast, single query)
 SELECT JSON_QUERY(json_document, '$' PRETTY)
 FROM social_media
 WHERE JSON_VALUE(json_document, '$._id') = 'USER#123';
--- Latency: 2-3ms (inline document with subset)
+```
 
+**Expected output:**
+```json
+{
+  "_id" : "USER#123",
+  "type" : "user",
+  "username" : "jsmith",
+  "email" : "jsmith@example.com",
+  "follower_count" : 5247,
+  "top_friends" :
+  [
+    {
+      "user_id" : "USER#456",
+      "username" : "alice",
+      "avatar" : "https://..."
+    },
+    {
+      "user_id" : "USER#789",
+      "username" : "bob",
+      "avatar" : "https://..."
+    },
+    {
+      "user_id" : "USER#234",
+      "username" : "carol",
+      "avatar" : "https://..."
+    }
+  ]
+}
+```
+
+> **Note:** User profile with top_friends subset retrieved in single query (~2-3ms). Complete friends list is stored separately.
+
+```sql
 -- Query 2: Get all friends when user clicks "See All" (paginated)
 SELECT JSON_QUERY(json_document, '$' PRETTY)
 FROM social_media

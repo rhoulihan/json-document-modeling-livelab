@@ -46,7 +46,16 @@ CREATE TABLE order_items_normalized (
   json_document JSON,
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
+```
 
+**Expected output:**
+```
+Table created.
+Table created.
+Table created.
+```
+
+```sql
 -- Load customers
 BEGIN
   FOR i IN 1..100 LOOP
@@ -62,7 +71,14 @@ BEGIN
   COMMIT;
 END;
 /
+```
 
+**Expected output:**
+```
+PL/SQL procedure successfully completed.
+```
+
+```sql
 -- Load orders
 BEGIN
   FOR i IN 1..1000 LOOP
@@ -79,7 +95,16 @@ BEGIN
   COMMIT;
 END;
 /
+```
 
+**Expected output:**
+```
+PL/SQL procedure successfully completed.
+```
+
+> **Note:** Loaded 100 customers and 1000 orders.
+
+```sql
 -- Load order items
 BEGIN
   FOR i IN 1..1000 LOOP
@@ -99,6 +124,13 @@ BEGIN
 END;
 /
 ```
+
+**Expected output:**
+```
+PL/SQL procedure successfully completed.
+```
+
+> **Note:** Loaded 3000 order items (3 items per order).
 
 ### Step 2: Create Single Collection (Denormalized Approach)
 

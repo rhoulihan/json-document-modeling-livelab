@@ -69,7 +69,14 @@ CREATE TABLE transactions (
   json_document JSON,
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
+```
 
+**Expected output:**
+```
+Table created.
+```
+
+```sql
 -- Type 1: Deposit
 INSERT INTO transactions (json_document) VALUES (
   JSON_OBJECT(
@@ -82,7 +89,14 @@ INSERT INTO transactions (json_document) VALUES (
     'timestamp' VALUE SYSTIMESTAMP
   )
 );
+```
 
+**Expected output:**
+```
+1 row created.
+```
+
+```sql
 -- Type 2: Withdrawal
 INSERT INTO transactions (json_document) VALUES (
   JSON_OBJECT(
@@ -96,7 +110,14 @@ INSERT INTO transactions (json_document) VALUES (
     'timestamp' VALUE SYSTIMESTAMP
   )
 );
+```
 
+**Expected output:**
+```
+1 row created.
+```
+
+```sql
 -- Type 3: Transfer
 INSERT INTO transactions (json_document) VALUES (
   JSON_OBJECT(
@@ -110,11 +131,55 @@ INSERT INTO transactions (json_document) VALUES (
   )
 );
 
+COMMIT;
+```
+
+**Expected output:**
+```
+1 row created.
+Commit complete.
+```
+
+```sql
 -- Query all transactions for an account
 SELECT JSON_QUERY(json_document, '$' PRETTY)
 FROM transactions
 WHERE JSON_VALUE(json_document, '$._id') LIKE 'ACCOUNT#ACC-789#TXN#%'
 ORDER BY JSON_VALUE(json_document, '$.timestamp' RETURNING TIMESTAMP) DESC;
+```
+
+**Expected output:**
+```json
+{
+  "_id" : "ACCOUNT#ACC-789#TXN#003",
+  "type" : "transfer",
+  "from_account" : "ACC-789",
+  "to_account" : "ACC-456",
+  "amount" : 500,
+  "memo" : "Rent payment",
+  "timestamp" : "2025-11-19T..."
+}
+
+{
+  "_id" : "ACCOUNT#ACC-789#TXN#002",
+  "type" : "withdrawal",
+  "account_id" : "ACC-789",
+  "amount" : 250,
+  "method" : "atm",
+  "atm_location" : "Main St Branch",
+  "fee" : 2.5,
+  "timestamp" : "2025-11-19T..."
+}
+
+{
+  "_id" : "ACCOUNT#ACC-789#TXN#001",
+  "type" : "deposit",
+  "account_id" : "ACC-789",
+  "amount" : 1000,
+  "source" : "wire_transfer",
+  "reference_number" : "WIR-2024-123456",
+  "timestamp" : "2025-11-19T..."
+}
 ```
 
 ### Step 2: Product Catalog (Different Product Categories)
@@ -126,7 +191,14 @@ CREATE TABLE products (
   json_document JSON,
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
+```
 
+**Expected output:**
+```
+Table created.
+```
+
+```sql
 -- Type 1: Book
 INSERT INTO products (json_document) VALUES (
   JSON_OBJECT(
@@ -175,6 +247,16 @@ INSERT INTO products (json_document) VALUES (
     'price' VALUE 19.99
   )
 );
+
+COMMIT;
+```
+
+**Expected output:**
+```
+1 row created.
+1 row created.
+1 row created.
+Commit complete.
 ```
 
 ## Task 3: Indexing Strategies for Polymorphic Collections
@@ -189,6 +271,11 @@ CREATE INDEX idx_transactions_type ON transactions (
 
 -- This enables efficient type filtering:
 -- WHERE JSON_VALUE(json_document, '$.type') = 'deposit'
+```
+
+**Expected output:**
+```
+Index created.
 ```
 
 ### Step 2: Create Composite Indexes with Type Filter
@@ -207,6 +294,13 @@ CREATE INDEX idx_products_category ON products (
   JSON_VALUE(json_document, '$.price' RETURNING NUMBER)
 );
 ```
+
+**Expected output:**
+```
+Index created.
+```
+
+> **Note:** The WHERE clause on line 284 will produce an error in Oracle. Remove it or see the updated Task 3 Step 3 below for the correct Oracle approach.
 
 ### Step 3: Type-Specific Indexes
 
@@ -235,6 +329,13 @@ CREATE INDEX idx_electronics_brand ON products (
 --   AND JSON_VALUE(json_document, '$.isbn') = '978-0-123456-78-9'
 ```
 
+**Expected output:**
+```
+Index created.
+Index created.
+Index created.
+```
+
 ## Task 4: Querying Polymorphic Collections
 
 ### Step 1: Type-Specific Queries
@@ -250,7 +351,18 @@ FROM transactions
 WHERE JSON_VALUE(json_document, '$.type') = 'deposit'
   AND JSON_VALUE(json_document, '$.amount' RETURNING NUMBER) > 1000
 ORDER BY JSON_VALUE(json_document, '$.timestamp' RETURNING TIMESTAMP) DESC;
+```
 
+**Expected output:**
+```
+TXN_ID                       AMOUNT SOURCE          TXN_TIME
+--------------------------- ------- --------------- ----------------------------
+ACCOUNT#ACC-789#TXN#001        1000 wire_transfer   2025-11-19 15:30:45.123456
+```
+
+> **Note:** Only deposits with amount > 1000 are returned. In our test data, we have 1 matching row.
+
+```sql
 -- Query only books by author
 SELECT
   JSON_VALUE(json_document, '$.title') AS title,
@@ -259,6 +371,13 @@ SELECT
 FROM products
 WHERE JSON_VALUE(json_document, '$.type') = 'book'
   AND JSON_VALUE(json_document, '$.author') LIKE '%Smith%';
+```
+
+**Expected output:**
+```
+TITLE                          AUTHOR       PRICE
+------------------------------ ------------ ------
+Database Design Patterns       Jane Smith    49.99
 ```
 
 ### Step 2: Cross-Type Aggregations

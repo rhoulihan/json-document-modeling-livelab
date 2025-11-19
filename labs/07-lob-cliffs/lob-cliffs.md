@@ -47,7 +47,14 @@ CREATE TABLE perf_test (
   json_document JSON,
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
+```
 
+**Expected output:**
+```
+Table created.
+```
+
+```sql
 -- Test 1: Inline document (< 7,950 bytes)
 -- Insert time: ~0.5-1ms
 -- Read time: ~1-2ms
@@ -70,6 +77,17 @@ INSERT INTO perf_test (json_document) VALUES (
   )
 );
 
+COMMIT;
+```
+
+**Expected output:**
+```
+1 row created.
+1 row created.
+Commit complete.
+```
+
+```sql
 /*
 Note: RPAD in Oracle has a 4000 character limit. For testing larger documents (100KB, 15MB),
 you would need to:
@@ -101,19 +119,16 @@ SELECT
   END AS storage_tier
 FROM perf_test
 ORDER BY LENGTHB(json_document);
+```
 
-/*
-Expected Result:
+**Expected output:**
+```
 DOC_ID              DOC_TYPE  SIZE_BYTES  SIZE_KB   STORAGE_TIER
 ------------------  --------  ----------  --------  -------------------
 DOC-INLINE          small     3067        3.00      INLINE (Optimal)
 DOC-NEAR-THRESHOLD  medium    3967        3.87      INLINE (Optimal)
-
-Both documents are in INLINE storage tier for optimal performance.
-For testing LOB tiers, you would need to generate larger documents using
-the techniques mentioned in the note above.
-*/
 ```
+
 
 ### Step 2: Performance Impact of Inline Storage
 

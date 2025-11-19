@@ -48,12 +48,26 @@ CREATE TABLE ecommerce (
   json_document JSON,
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
+```
 
+**Expected output:**
+```
+Table created.
+```
+
+```sql
 -- Create index on _id field (composite key)
 CREATE INDEX idx_ecommerce_composite_key ON ecommerce (
   JSON_VALUE(json_document, '$._id')
 );
+```
 
+**Expected output:**
+```
+Index created.
+```
+
+```sql
 -- This index enables efficient:
 -- 1. Exact match: WHERE _id = 'CUSTOMER#456'
 -- 2. Prefix match: WHERE _id LIKE 'CUSTOMER#456#%'
@@ -87,14 +101,53 @@ BEGIN
   COMMIT;
 END;
 /
+```
 
+**Expected output:**
+```
+PL/SQL procedure successfully completed.
+```
+
+```sql
 -- Test composite key index performance
 SELECT JSON_QUERY(json_document, '$')
 FROM ecommerce
 WHERE JSON_VALUE(json_document, '$._id') LIKE 'CUSTOMER#456#ORDER#%'
 ORDER BY JSON_VALUE(json_document, '$.order_date' RETURNING TIMESTAMP) DESC
 FETCH FIRST 20 ROWS ONLY;
+```
 
+**Expected output:** (showing first 3 of 20 rows)
+```json
+{
+  "_id" : "CUSTOMER#456#ORDER#00001",
+  "type" : "order",
+  "customer_id" : "CUSTOMER#456",
+  "order_date" : "2025-11-18T...",
+  "total" : 358.81
+}
+
+{
+  "_id" : "CUSTOMER#456#ORDER#00002",
+  "type" : "order",
+  "customer_id" : "CUSTOMER#456",
+  "order_date" : "2025-11-17T...",
+  "total" : 122.65
+}
+
+{
+  "_id" : "CUSTOMER#456#ORDER#00003",
+  "type" : "order",
+  "customer_id" : "CUSTOMER#456",
+  "order_date" : "2025-11-16T...",
+  "total" : 220.64
+}
+...
+```
+
+> **Note:** The index `idx_ecommerce_composite_key` enables efficient prefix matching on the `_id` field.
+
+```sql
 -- Check execution plan
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'TYPICAL'));
 -- Should show INDEX RANGE SCAN on idx_ecommerce_composite_key
@@ -117,9 +170,16 @@ CREATE INDEX idx_ecommerce_type ON ecommerce (
 SELECT COUNT(*)
 FROM ecommerce
 WHERE JSON_VALUE(json_document, '$.type') = 'order';
-
--- Expected: Uses idx_ecommerce_type for fast count
 ```
+
+**Expected output:**
+```
+  COUNT(*)
+----------
+       100
+```
+
+> **Note:** The query uses `idx_ecommerce_type` for fast filtering by type.
 
 ### Step 2: Composite Index with Type
 
@@ -129,7 +189,14 @@ CREATE INDEX idx_ecommerce_type_date ON ecommerce (
   JSON_VALUE(json_document, '$.type'),
   JSON_VALUE(json_document, '$.order_date' RETURNING TIMESTAMP)
 );
+```
 
+**Expected output:**
+```
+Index created.
+```
+
+```sql
 -- This index optimizes:
 -- 1. Type-specific date range queries
 -- 2. Type-specific sorting by date

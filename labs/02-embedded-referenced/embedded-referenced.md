@@ -276,6 +276,15 @@ Let's implement an e-commerce order system using the embedded pattern.
    WHERE JSON_VALUE(json_document, '$.customer_id') = 'CUST-456';
    ```
 
+   **Expected output:**
+   ```
+   ORDER_ID       ORDER_DATE             CUSTOMER_NAME     TOTAL
+   -------------- ---------------------- ---------------- -------
+   ORD-EMB-001    2024-11-15T10:30:00    Alice Johnson    169.96
+   ```
+
+   **Performance:** Single query returns complete order in **~2ms** (no joins!)
+
 3. Expand order items using JSON_TABLE:
 
    ```sql

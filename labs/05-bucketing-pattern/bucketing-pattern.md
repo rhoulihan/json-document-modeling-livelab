@@ -256,6 +256,15 @@ FROM sensor_data
 WHERE JSON_VALUE(json_document, '$.type') = 'sensor_bucket';
 ```
 
+   **Expected output:**
+   ```
+   BUCKET_ID                               READING_COUNT  SIZE_BYTES
+   --------------------------------------- -------------- ----------
+   SENSOR#temp001#BUCKET#2024-11-18-14              3600      75000
+   ```
+
+   **Key Insight:** 3,600 readings stored in a single ~75KB document (inline storage tier, fast access!)
+
 ### Step 3: Generate Bulk Time-Series Data
 
 ```sql

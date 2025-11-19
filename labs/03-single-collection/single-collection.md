@@ -266,6 +266,13 @@ Use indexed attributes instead when:
    WHERE JSON_VALUE(json_document, '$._id') LIKE 'CUSTOMER#CUST-456#ORDER#%';
    ```
 
+   **Expected output:**
+   ```
+   ORDER_ID                              ORDER_DATE             TOTAL  STATUS
+   ------------------------------------- ---------------------- ------ --------
+   CUSTOMER#CUST-456#ORDER#ORD-001       2024-11-15T10:30:00Z  114.45 shipped
+   ```
+
 7. Get customer and all their orders (2 queries):
 
    ```sql

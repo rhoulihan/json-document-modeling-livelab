@@ -4,7 +4,7 @@
 
 Welcome to the JSON Document Modeling for Performance workshop! This hands-on workshop teaches you how to design high-performance document data models for Oracle JSON Collections using proven NoSQL design patterns.
 
-You will learn the **Single Collection/Table Design pattern** - the most critical NoSQL pattern for achieving 10-20x query performance improvements - along with other essential document modeling techniques. By the end of this workshop, you will be able to design document models that maximize query efficiency, avoid common performance pitfalls, and leverage Oracle's advanced JSON capabilities.
+You will learn the **Single Collection/Table Design pattern** - an important NoSQL approach for improving query performance - along with other essential document modeling techniques. By the end of this workshop, you will be able to design document models that maximize query efficiency, avoid common performance pitfalls, and leverage Oracle's advanced JSON capabilities.
 
 Estimated Time: 3.5 hours (Foundation series - Labs 0-3)
 
@@ -19,7 +19,7 @@ This workshop is **Part 1** of a three-part series on JSON document modeling:
 
 - **Part 2: Single Collection Deep-Dive** (Separate workshop - Lab 3 expanded, 1.5 hours)
   - Comprehensive coverage of the Single Collection/Table pattern
-  - Rick Houlihan's access pattern-first design methodology
+  - Access pattern-first design methodology
   - Real-world implementation and performance testing
 
 - **Part 3: Advanced Document Modeling** (Separate workshop - Labs 4-10, 4-4.5 hours)
@@ -29,10 +29,10 @@ This workshop is **Part 1** of a three-part series on JSON document modeling:
 
 ### What You Will Learn
 
-This workshop teaches document modeling based on industry-leading guidance:
+This workshop teaches document modeling based on industry best practices:
 
-- **Rick Houlihan's DynamoDB Single Table Design** (AWS Principal Technologist, 2024)
-- **MongoDB Single Collection Pattern** (current best practices)
+- **DynamoDB Single Table Design patterns**
+- **MongoDB Single Collection Pattern**
 - **Oracle JSON Collections 23ai/26ai** optimizations
 
 ### Objectives
@@ -85,7 +85,7 @@ Throughout this workshop, you will work with realistic use cases:
 
 **2. Access Pattern-Driven Design**
 - Start with how data is accessed, not how it's structured
-- Apply Rick Houlihan's principle: "What is accessed together should be stored together"
+- Core principle: "What is accessed together should be stored together"
 - Design for queries, not entities
 
 **3. Real-World Focus**
@@ -103,9 +103,9 @@ Throughout this workshop, you will work with realistic use cases:
 
 By applying the patterns in this workshop, you will see:
 
-- **10-20x faster queries** with Single Collection vs multiple collections
-- **Sub-5ms query latency** for well-designed access patterns
-- **50-70% storage reduction** with strategic denormalization
+- **Significant query performance improvements** with Single Collection vs multiple collections
+- **Low-latency query performance** for well-designed access patterns
+- **Storage optimization** with strategic denormalization
 - **Elimination of application-level joins** for related data
 - **Predictable performance** at scale
 
@@ -134,7 +134,7 @@ RDBMS Normalized Approach          Single Collection Document Approach
 ┌─────────────┐    │               customer info
 │ Order Items │    │
 ├─────────────┤    │               No joins needed
-│ item_id     │────┘               10-20x faster
+│ item_id     │────┘               Significantly faster
 │ order_id    │
 │ product_id  │
 │ quantity    │
@@ -180,8 +180,8 @@ This workshop uses:
 - Implement composite keys for entity relationships
 - Apply strategic denormalization
 - Avoid LOB performance cliffs
-- Measure 10-20x performance improvements
-- Learn Rick Houlihan's access pattern-first methodology
+- Measure query performance improvements
+- Learn access pattern-first methodology
 
 ### What You Will Build
 
@@ -190,8 +190,8 @@ By the end of this workshop, you will have:
 1. **Working Oracle Database** with JSON Collections configured
 2. **E-commerce data model** with 10,000+ documents
 3. **Performance comparison scripts** demonstrating pattern efficiency
-4. **Single Collection implementation** following Rick Houlihan's principles
-5. **Benchmark results** showing 10-20x query improvements
+4. **Single Collection implementation** following industry best practices
+5. **Benchmark results** showing query performance improvements
 6. **Production-ready patterns** you can apply to your own projects
 
 ### Why Document Modeling Matters
@@ -210,7 +210,6 @@ By the end of this workshop, you will have:
 
 **The Key Insight:**
 > "In the cloud era, storage is cheap but compute is expensive. Design for query performance, not storage minimization."
-> - Rick Houlihan, AWS Principal Technologist
 
 ### Oracle JSON Collections Advantages
 
@@ -235,9 +234,9 @@ If you need assistance during this workshop:
 
 ### Workshop Team
 
-This workshop was developed by Oracle Database experts in collaboration with the NoSQL community, incorporating guidance from:
+This workshop was developed by Oracle Database experts in collaboration with the NoSQL community, incorporating industry best practices from:
 
-- Rick Houlihan (AWS - DynamoDB Single Table Design)
+- AWS DynamoDB design patterns
 - MongoDB Building with Patterns team
 - Oracle JSON development team
 - Oracle LiveLabs content team
@@ -246,7 +245,7 @@ This workshop was developed by Oracle Database experts in collaboration with the
 
 * [Oracle JSON Collections Documentation](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/json-collections.html)
 * [Oracle Database 23ai JSON Features](https://docs.oracle.com/en/database/oracle/oracle-database/23/newft/)
-* [Rick Houlihan's DynamoDB Talks](https://www.youtube.com/results?search_query=rick+houlihan+dynamodb)
+* [AWS DynamoDB Design Patterns](https://aws.amazon.com/dynamodb/resources/)
 * [MongoDB Building with Patterns](https://www.mongodb.com/blog/post/building-with-patterns-a-summary)
 * [Oracle Database API for MongoDB](https://docs.oracle.com/en/database/oracle/mongodb-api/)
 

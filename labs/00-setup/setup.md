@@ -263,6 +263,16 @@ Both Autonomous Database Free Tier and 23ai Free users continue with this task.
    GRANT SODA_APP TO jsonuser;
    ```
 
+   **Expected output:**
+   ```
+   User created.
+   Grant succeeded.
+   Grant succeeded.
+   Grant succeeded.
+   Grant succeeded.
+   Grant succeeded.
+   ```
+
    > **Note:** `SODA_APP` role provides privileges for Simple Oracle Document Access (SODA), the foundation for JSON Collections
 
 2. Verify the user was created:
@@ -323,6 +333,11 @@ We will use **SQL/JSON** as the primary method, with SODA examples provided.
    );
    ```
 
+   **Expected output:**
+   ```
+   Table created.
+   ```
+
 2. Verify the collection was created:
 
    ```sql
@@ -360,6 +375,12 @@ We will use **SQL/JSON** as the primary method, with SODA examples provided.
    );
 
    COMMIT;
+   ```
+
+   **Expected output:**
+   ```
+   1 row created.
+   Commit complete.
    ```
 
 2. Query the document:
@@ -468,12 +489,24 @@ You will use this table throughout the workshop to track performance benchmarks.
    );
    ```
 
+   **Expected output:**
+   ```
+   Table created.
+   ```
+
 2. Verify the table was created:
 
    ```sql
    SELECT table_name
    FROM user_tables
    WHERE table_name = 'PERFORMANCE_METRICS';
+   ```
+
+   **Expected output:**
+   ```
+   TABLE_NAME
+   ------------------
+   PERFORMANCE_METRICS
    ```
 
 ### Step 3: Test JSON Query Functions
@@ -498,6 +531,27 @@ You will use this table throughout the workshop to track performance benchmarks.
      JSON_TABLE(json_document, '$.skills[*]'
        COLUMNS (skill VARCHAR2(50) PATH '$')
      ) jt;
+   ```
+
+   **Expected output:**
+   ```
+   NAME
+   ---------------
+   Alice Smith
+
+   SKILLS
+   ----------------------------------------
+   ["SQL","Python","JavaScript"]
+
+   COUNT(*)
+   --------
+          1
+
+   SKILL
+   ---------------
+   SQL
+   Python
+   JavaScript
    ```
 
 2. If all queries execute successfully, your environment is ready!

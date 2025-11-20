@@ -76,7 +76,12 @@ CREATE TABLE transactions (
 Table created.
 ```
 
+**SQL Approach:**
+
+if type="sql"
+
 ```sql
+<copy>
 -- Type 1: Deposit
 INSERT INTO transactions (json_document) VALUES (
   JSON_OBJECT(
@@ -89,12 +94,58 @@ INSERT INTO transactions (json_document) VALUES (
     'timestamp' VALUE SYSTIMESTAMP
   )
 );
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 1 row created.
 ```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('transactions');
+
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "ACCOUNT#ACC-789#TXN#001",
+        "type": "deposit",
+        "account_id": "ACC-789",
+        "amount": 1000.00,
+        "source": "wire_transfer",
+        "reference_number": "WIR-2024-123456",
+        "timestamp": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
+      }')
+    )
+  );
+
+  IF status = 1 THEN
+    DBMS_OUTPUT.PUT_LINE('1 row created.');
+  END IF;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 ```sql
 -- Type 2: Withdrawal

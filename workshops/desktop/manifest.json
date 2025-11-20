@@ -26,7 +26,8 @@
     {
       "title": "Lab 2: Embedded vs Referenced Patterns",
       "description": "Compare denormalized vs normalized approaches with performance benchmarks",
-      "filename": "../../labs/02-embedded-referenced/embedded-referenced.md"
+      "filename": "../../labs/02-embedded-referenced/embedded-referenced.md",
+      "type": "sql,soda"
     },
     {
       "title": "Lab 3: Single Collection/Table Design",

@@ -167,7 +167,12 @@ Let's implement an e-commerce order system using the embedded pattern.
 
 1. Insert an order with embedded items and customer info:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO orders_embedded (json_document) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'ORD-EMB-001',
@@ -207,7 +212,86 @@ Let's implement an e-commerce order system using the embedded pattern.
        'total' VALUE 169.96
      )
    );
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('orders_embedded');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "ORD-EMB-001",
+           "order_date": "2024-11-15T10:30:00",
+           "status": "shipped",
+           "customer_id": "CUST-456",
+           "customer": {
+             "name": "Alice Johnson",
+             "email": "alice@email.com",
+             "phone": "+1-555-0123"
+           },
+           "shipping_address": {
+             "street": "123 Main Street",
+             "city": "San Francisco",
+             "state": "CA",
+             "zip": "94105"
+           },
+           "items": [
+             {
+               "product_id": "PROD-001",
+               "product_name": "Wireless Bluetooth Headphones",
+               "price": 79.99,
+               "quantity": 1,
+               "subtotal": 79.99
+             },
+             {
+               "product_id": "PROD-002",
+               "product_name": "Ergonomic Wireless Mouse",
+               "price": 34.99,
+               "quantity": 2,
+               "subtotal": 69.98
+             }
+           ],
+           "subtotal": 149.97,
+           "tax": 12.00,
+           "shipping": 7.99,
+           "total": 169.96
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 2. Insert more embedded orders:
 
@@ -384,7 +468,12 @@ Now let's implement the same scenario using the referenced pattern (normalized).
 
 1. Insert customers:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO customers_referenced (json_document) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'CUST-456',
@@ -404,11 +493,81 @@ Now let's implement the same scenario using the referenced pattern (normalized).
    );
 
    COMMIT;
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   Commit complete.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('customers_referenced');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "CUST-456",
+           "name": "Alice Johnson",
+           "email": "alice@email.com",
+           "phone": "+1-555-0123",
+           "addresses": [
+             {
+               "type": "shipping",
+               "street": "123 Main Street",
+               "city": "San Francisco",
+               "state": "CA",
+               "zip": "94105"
+             }
+           ]
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE('Commit complete.');
+     END IF;
+
+     COMMIT;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   Commit complete.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 2. Insert orders (without embedded items or customer details):
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO orders_referenced (json_document) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'ORD-REF-001',
@@ -421,11 +580,68 @@ Now let's implement the same scenario using the referenced pattern (normalized).
        'total' VALUE 169.96
      )
    );
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('orders_referenced');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "ORD-REF-001",
+           "order_date": "2024-11-15T10:30:00",
+           "status": "shipped",
+           "customer_id": "CUST-456",
+           "subtotal": 149.97,
+           "tax": 12.00,
+           "shipping": 7.99,
+           "total": 169.96
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 3. Insert order items (separate documents):
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO order_items_referenced (json_document)
    VALUES
    (JSON_OBJECT(
@@ -448,7 +664,83 @@ Now let's implement the same scenario using the referenced pattern (normalized).
    ));
 
    COMMIT;
+   </copy>
    ```
+
+   Expected output:
+   ```
+   2 rows created.
+
+   Commit complete.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+     total_inserted NUMBER := 0;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('order_items_referenced');
+
+     -- Insert ITEM-001
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "ITEM-001",
+           "order_id": "ORD-REF-001",
+           "product_id": "PROD-001",
+           "product_name": "Wireless Bluetooth Headphones",
+           "price": 79.99,
+           "quantity": 1,
+           "subtotal": 79.99
+         }')
+       )
+     );
+     total_inserted := total_inserted + status;
+
+     -- Insert ITEM-002
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "ITEM-002",
+           "order_id": "ORD-REF-001",
+           "product_id": "PROD-002",
+           "product_name": "Ergonomic Wireless Mouse",
+           "price": 34.99,
+           "quantity": 2,
+           "subtotal": 69.98
+         }')
+       )
+     );
+     total_inserted := total_inserted + status;
+
+     DBMS_OUTPUT.PUT_LINE(total_inserted || ' rows created.');
+     DBMS_OUTPUT.PUT_LINE('');
+     DBMS_OUTPUT.PUT_LINE('Commit complete.');
+
+     COMMIT;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   2 rows created.
+
+   Commit complete.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 4. Insert more referenced data:
 
@@ -808,7 +1100,12 @@ Understanding update behavior is critical for pattern selection.
 
 1. Update embedded customer name (must update all orders):
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    -- Update customer name in all orders
    UPDATE orders_embedded
    SET json_document = JSON_MERGEPATCH(
@@ -818,7 +1115,77 @@ Understanding update behavior is critical for pattern selection.
    WHERE JSON_VALUE(json_document, '$.customer_id') = 'CUST-456';
 
    COMMIT;
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   > **Note:** SODA doesn't have a direct equivalent to JSON_MERGEPATCH for updates. For mass updates like this, SQL is more efficient. However, here's how to update a single embedded document using SODA's fetch-merge-replace pattern:
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     doc SODA_DOCUMENT_T;
+     doc_content CLOB;
+     merged_content CLOB;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('orders_embedded');
+
+     -- For demonstration, update one order by its _id
+     -- Get the existing document
+     doc := collection.find().key('ORD-EMB-001').get_one();
+
+     IF doc IS NOT NULL THEN
+       doc_content := doc.get_clob();
+
+       -- Merge the patch using SQL
+       SELECT JSON_MERGEPATCH(doc_content, '{"customer": {"name": "Alice Smith-Johnson"}}')
+       INTO merged_content
+       FROM DUAL;
+
+       -- Replace with merged document
+       status := collection.find().key('ORD-EMB-001').replace_one(
+         SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
+       );
+
+       IF status = 1 THEN
+         DBMS_OUTPUT.PUT_LINE('1 row updated.');
+         DBMS_OUTPUT.PUT_LINE('');
+         DBMS_OUTPUT.PUT_LINE('Commit complete.');
+       END IF;
+
+       COMMIT;
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+   > **Best Practice:** For bulk updates across multiple documents (WHERE clause), use SQL. SODA is best for single-document updates by key.
+
+/if
 
    **Impact:** If customer has 100 orders, you must update 100 documents!
 
@@ -826,7 +1193,12 @@ Understanding update behavior is critical for pattern selection.
 
 1. Update customer name (single update):
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    -- Update customer name in one place
    UPDATE customers_referenced
    SET json_document = JSON_MERGEPATCH(
@@ -836,7 +1208,72 @@ Understanding update behavior is critical for pattern selection.
    WHERE JSON_VALUE(json_document, '$._id') = 'CUST-456';
 
    COMMIT;
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     doc SODA_DOCUMENT_T;
+     doc_content CLOB;
+     merged_content CLOB;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('customers_referenced');
+
+     -- Get the existing document
+     doc := collection.find().key('CUST-456').get_one();
+
+     IF doc IS NOT NULL THEN
+       doc_content := doc.get_clob();
+
+       -- Merge the patch using SQL
+       SELECT JSON_MERGEPATCH(doc_content, '{"name": "Alice Smith-Johnson"}')
+       INTO merged_content
+       FROM DUAL;
+
+       -- Replace with merged document
+       status := collection.find().key('CUST-456').replace_one(
+         SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
+       );
+
+       IF status = 1 THEN
+         DBMS_OUTPUT.PUT_LINE('1 row updated.');
+         DBMS_OUTPUT.PUT_LINE('');
+         DBMS_OUTPUT.PUT_LINE('Commit complete.');
+       END IF;
+
+       COMMIT;
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
    **Impact:** Only 1 document updated, all orders automatically reflect new name on next query.
 

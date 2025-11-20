@@ -147,6 +147,77 @@ PL/SQL procedure successfully completed.
 
 /if
 
+**MongoDB API Approach:**
+
+if type="mongodb"
+
+```javascript
+<copy>
+// Connect to Oracle using MongoDB API
+// mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+use mydb
+
+// Type 1: Deposit transaction
+db.transactions.insertOne({
+  _id: "ACCOUNT#ACC-789#TXN#001",
+  type: "deposit",                    // Type discriminator
+  account_id: "ACC-789",
+  amount: 1000.00,
+  source: "wire_transfer",
+  reference_number: "WIR-2024-123456",
+  timestamp: new Date()
+})
+</copy>
+```
+
+Expected output:
+```javascript
+{
+  acknowledged: true,
+  insertedId: 'ACCOUNT#ACC-789#TXN#001'
+}
+```
+
+> **MongoDB API**: Type discriminator pattern is fundamental in MongoDB. The `type` field enables polymorphic collections where different document types coexist with different schemas.
+
+/if
+
+**REST API Approach:**
+
+if type="rest"
+
+```bash
+<copy>
+# Insert deposit transaction via REST
+curl -X POST \
+  "http://localhost:8080/ords/jsonuser/soda/latest/transactions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "_id": "ACCOUNT#ACC-789#TXN#001",
+    "type": "deposit",
+    "account_id": "ACC-789",
+    "amount": 1000.00,
+    "source": "wire_transfer",
+    "reference_number": "WIR-2024-123456",
+    "timestamp": "2024-11-19T10:30:00Z"
+  }'
+</copy>
+```
+
+Expected output:
+```json
+{
+  "id": "...",
+  "etag": "...",
+  "lastModified": "2024-11-19T10:30:00.000Z"
+}
+```
+
+> **REST API**: Each transaction type is just JSON with a type field. APIs can route based on type for type-specific validation or processing.
+
+/if
+
 **SQL Approach:**
 
 if type="sql"
@@ -622,6 +693,129 @@ ACCOUNT#ACC-789#TXN#001        1000 wire_transfer   2025-11-19 15:30:45.123456
 ```
 
 > **Note:** Only deposits with amount > 1000 are returned. In our test data, we have 1 matching row.
+
+**MongoDB API - Query by Type:**
+
+if type="mongodb"
+
+```javascript
+<copy>
+// Query only deposits (type discriminator)
+db.transactions.find(
+  {
+    type: "deposit",
+    amount: { $gt: 1000 }
+  },
+  {
+    _id: 1,
+    amount: 1,
+    source: 1,
+    timestamp: 1
+  }
+).sort({ timestamp: -1 })
+
+// Query all transaction types for an account
+db.transactions.find({
+  account_id: "ACC-789"
+}).sort({ timestamp: -1 })
+
+// Count transactions by type (polymorphic aggregation)
+db.transactions.aggregate([
+  {
+    $match: { account_id: "ACC-789" }
+  },
+  {
+    $group: {
+      _id: "$type",                    // Group by type discriminator
+      count: { $sum: 1 },
+      total_amount: { $sum: "$amount" }
+    }
+  },
+  {
+    $sort: { total_amount: -1 }
+  }
+])
+</copy>
+```
+
+Expected output:
+```javascript
+// Query results:
+[
+  {
+    _id: 'ACCOUNT#ACC-789#TXN#001',
+    amount: 1000,
+    source: 'wire_transfer',
+    timestamp: ISODate("2024-11-19T15:30:45.123Z")
+  }
+]
+
+// Aggregation results:
+[
+  { _id: 'deposit', count: 45, total_amount: 125000 },
+  { _id: 'transfer', count: 23, total_amount: 45000 },
+  { _id: 'withdrawal', count: 67, total_amount: 32000 }
+]
+```
+
+> **MongoDB API**: Type discriminator enables efficient polymorphic queries. Filter by `type` field, then access type-specific fields naturally.
+
+/if
+
+**REST API - Query by Type:**
+
+if type="rest"
+
+```bash
+<copy>
+# Query only deposits with amount > 1000
+curl -X POST \
+  "http://localhost:8080/ords/jsonuser/soda/latest/transactions?action=query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "$query": {
+      "type": "deposit",
+      "amount": { "$gt": 1000 }
+    },
+    "$orderby": { "timestamp": -1 },
+    "$fields": {
+      "_id": 1,
+      "amount": 1,
+      "source": 1,
+      "timestamp": 1
+    }
+  }'
+
+# Query all transactions for an account (all types)
+curl -X POST \
+  "http://localhost:8080/ords/jsonuser/soda/latest/transactions?action=query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "$query": { "account_id": "ACC-789" },
+    "$orderby": { "timestamp": -1 }
+  }'
+</copy>
+```
+
+Expected output:
+```json
+{
+  "items": [
+    {
+      "_id": "ACCOUNT#ACC-789#TXN#001",
+      "amount": 1000,
+      "source": "wire_transfer",
+      "timestamp": "2024-11-19T15:30:45.123Z"
+    }
+  ],
+  "hasMore": false,
+  "count": 1
+}
+```
+
+> **REST API**: Use QBE filtering with type discriminator. Applications can route different types to different UI components or validation logic.
+
+/if
 
 ```sql
 -- Query only books by author

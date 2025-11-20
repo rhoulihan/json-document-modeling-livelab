@@ -54,7 +54,12 @@ CREATE TABLE perf_test (
 Table created.
 ```
 
+**SQL Approach:**
+
+if type="sql"
+
 ```sql
+<copy>
 -- Test 1: Inline document (< 7,950 bytes)
 -- Insert time: ~0.5-1ms
 -- Read time: ~1-2ms
@@ -78,14 +83,77 @@ INSERT INTO perf_test (json_document) VALUES (
 );
 
 COMMIT;
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 1 row created.
 1 row created.
 Commit complete.
 ```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+  v_data VARCHAR2(4000);
+  total_inserted NUMBER := 0;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('perf_test');
+
+  -- Test 1: Inline document (< 7,950 bytes)
+  v_data := RPAD('x', 3000, 'x');
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "DOC-INLINE",
+        "type": "small",
+        "data": "' || v_data || '"
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
+
+  -- Test 2: Small document approaching inline threshold
+  v_data := RPAD('x', 3900, 'x');
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "DOC-NEAR-THRESHOLD",
+        "type": "medium",
+        "data": "' || v_data || '"
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
+
+  DBMS_OUTPUT.PUT_LINE('Commit complete.');
+  COMMIT;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+1 row created.
+Commit complete.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 ```sql
 /*
@@ -266,6 +334,12 @@ CREATE TABLE customers_bad (
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
 
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 INSERT INTO customers_bad (json_document) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'CUSTOMER#456',
@@ -283,6 +357,45 @@ INSERT INTO customers_bad (json_document) VALUES (
     )
   )
 );
+</copy>
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('customers_bad');
+
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "CUSTOMER#456",
+        "type": "customer",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "full_order_history": [],
+        "full_payment_history": []
+      }')
+    )
+  );
+
+  IF status = 1 THEN
+    DBMS_OUTPUT.PUT_LINE('Anti-pattern document created (would be 450KB with full history)');
+  END IF;
+END;
+/
+</copy>
+```
+
+/if
 
 -- ✅ Solution: Vertical Split - Separate hot and cold data
 
@@ -292,6 +405,12 @@ CREATE TABLE customers_good (
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
 
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 -- Hot data: Frequently accessed (stays small)
 INSERT INTO customers_good (json_document) VALUES (
   JSON_OBJECT(
@@ -325,10 +444,70 @@ INSERT INTO customers_good (json_document) VALUES (
   )
 );
 -- Document size: 250KB ⚠️ LOB (but rarely accessed)
+</copy>
+```
 
--- Result:
--- - Hot path query: 2ms (inline document)
--- - Cold path query (rare): 50ms (LOB document, but acceptable for rare access)
+Result:
+- Hot path query: 2ms (inline document)
+- Cold path query (rare): 50ms (LOB document, but acceptable for rare access)
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('customers_good');
+
+  -- Hot data: Frequently accessed (stays small)
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "CUSTOMER#456",
+        "type": "customer",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "tier": "gold",
+        "stats": {
+          "total_orders": 5000,
+          "lifetime_value": 125000,
+          "last_order_date": "2024-11-18"
+        },
+        "recent_orders": []
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (hot data, 5KB INLINE)');
+
+  -- Cold data: Full order history (separate document)
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "CUSTOMER#456#ORDERS#ARCHIVE",
+        "type": "order_archive",
+        "customer_id": "CUSTOMER#456",
+        "orders": []
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (cold data archive)');
+
+  DBMS_OUTPUT.PUT_LINE('');
+  DBMS_OUTPUT.PUT_LINE('Result:');
+  DBMS_OUTPUT.PUT_LINE('- Hot path query: 2ms (inline document)');
+  DBMS_OUTPUT.PUT_LINE('- Cold path query (rare): 50ms (LOB document, but acceptable for rare access)');
+END;
+/
+</copy>
+```
+
+/if
 ```
 
 ### Step 2: Horizontal Splitting (Array Pagination)
@@ -342,6 +521,12 @@ CREATE TABLE social_bad (
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
 
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 INSERT INTO social_bad (json_document) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'USER#123',
@@ -352,6 +537,43 @@ INSERT INTO social_bad (json_document) VALUES (
     )
   )
 );
+</copy>
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('social_bad');
+
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "USER#123",
+        "type": "user",
+        "name": "Jane Smith",
+        "all_posts": []
+      }')
+    )
+  );
+
+  IF status = 1 THEN
+    DBMS_OUTPUT.PUT_LINE('Anti-pattern document created (would exceed 32MB limit with full posts)');
+  END IF;
+END;
+/
+</copy>
+```
+
+/if
 
 -- ✅ Solution: Horizontal Split with Composite Keys (from Lab 3)
 
@@ -361,6 +583,12 @@ CREATE TABLE social_good (
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
 
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 -- User document (small, frequently accessed)
 INSERT INTO social_good (json_document) VALUES (
   JSON_OBJECT(
@@ -387,6 +615,59 @@ INSERT INTO social_good (json_document) VALUES (
   )
 );
 -- Document size: 500 bytes ✅ INLINE
+</copy>
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('social_good');
+
+  -- User document (small, frequently accessed)
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "USER#123",
+        "type": "user",
+        "name": "Jane Smith",
+        "stats": {
+          "post_count": 10000,
+          "follower_count": 5420
+        }
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (user, 1KB INLINE)');
+
+  -- Each post is a separate document
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "USER#123#POST#001",
+        "type": "post",
+        "user_id": "USER#123",
+        "user_name": "Jane Smith",
+        "content": "My first post!",
+        "created_at": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (post, 500 bytes INLINE)');
+END;
+/
+</copy>
+```
+
+/if
 
 -- Query user's recent posts using composite key prefix
 SELECT JSON_QUERY(json_document, '$')
@@ -412,6 +693,12 @@ CREATE TABLE logs_with_archive (
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
 
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 -- Active logs (current month)
 INSERT INTO logs_with_archive (json_document) VALUES (
   JSON_OBJECT(
@@ -443,6 +730,61 @@ INSERT INTO logs_with_archive (json_document) VALUES (
   )
 );
 -- Document size: 2KB ✅ INLINE (summary only)
+</copy>
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('logs_with_archive');
+
+  -- Active logs (current month)
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "LOGS#app-server-01#2024-11",
+        "type": "active_logs",
+        "server_id": "app-server-01",
+        "month": "2024-11",
+        "log_entries": []
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (active logs, would be 150KB LOB)');
+
+  -- Archived logs (previous months)
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "LOGS#app-server-01#2024-10#ARCHIVE",
+        "type": "archived_logs",
+        "server_id": "app-server-01",
+        "month": "2024-10",
+        "archived_date": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '",
+        "log_summary": {
+          "total_entries": 45230,
+          "error_count": 42,
+          "warning_count": 256
+        }
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (archived summary, 2KB INLINE)');
+END;
+/
+</copy>
+```
+
+/if
 ```
 
 ## Task 4: Real-Time Monitoring and Alerting

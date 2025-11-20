@@ -55,7 +55,12 @@ Table created.
 Table created.
 ```
 
+**SQL Approach:**
+
+if type="sql"
+
 ```sql
+<copy>
 -- Load customers
 BEGIN
   FOR i IN 1..100 LOOP
@@ -71,14 +76,67 @@ BEGIN
   COMMIT;
 END;
 /
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 PL/SQL procedure successfully completed.
 ```
 
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
 ```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+  total_inserted NUMBER := 0;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('customers_normalized');
+
+  FOR i IN 1..100 LOOP
+    status := collection.insert_one(
+      SODA_DOCUMENT_T(
+        b_content => UTL_RAW.cast_to_raw(
+          '{' ||
+          '"_id": "CUST-' || LPAD(i, 5, '0') || '",' ||
+          '"name": "Customer ' || i || '",' ||
+          '"email": "customer' || i || '@example.com",' ||
+          '"tier": "' || (CASE MOD(i, 3) WHEN 0 THEN 'gold' WHEN 1 THEN 'silver' ELSE 'bronze' END) || '"' ||
+          '}'
+        )
+      )
+    );
+    total_inserted := total_inserted + status;
+  END LOOP;
+
+  DBMS_OUTPUT.PUT_LINE(total_inserted || ' customers loaded.');
+  COMMIT;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+100 customers loaded.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
+
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 -- Load orders
 BEGIN
   FOR i IN 1..1000 LOOP
@@ -95,12 +153,61 @@ BEGIN
   COMMIT;
 END;
 /
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 PL/SQL procedure successfully completed.
 ```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+  total_inserted NUMBER := 0;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('orders_normalized');
+
+  FOR i IN 1..1000 LOOP
+    status := collection.insert_one(
+      SODA_DOCUMENT_T(
+        b_content => UTL_RAW.cast_to_raw(
+          '{' ||
+          '"_id": "ORD-' || LPAD(i, 6, '0') || '",' ||
+          '"customer_id": "CUST-' || LPAD(MOD(i, 100) + 1, 5, '0') || '",' ||
+          '"order_date": "' || TO_CHAR(SYSTIMESTAMP - INTERVAL '1' DAY * MOD(i, 365), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '",' ||
+          '"status": "' || (CASE MOD(i, 4) WHEN 0 THEN 'delivered' WHEN 1 THEN 'shipped' WHEN 2 THEN 'processing' ELSE 'pending' END) || '",' ||
+          '"total": ' || ROUND(DBMS_RANDOM.VALUE(50, 500), 2) ||
+          '}'
+        )
+      )
+    );
+    total_inserted := total_inserted + status;
+  END LOOP;
+
+  DBMS_OUTPUT.PUT_LINE(total_inserted || ' orders loaded.');
+  COMMIT;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1000 orders loaded.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 > **Note:** Loaded 100 customers and 1000 orders.
 

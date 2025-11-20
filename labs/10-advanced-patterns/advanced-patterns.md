@@ -42,7 +42,12 @@ CREATE TABLE social_media (
 Table created.
 ```
 
+**SQL Approach:**
+
+if type="sql"
+
 ```sql
+<copy>
 -- User profile with subset of top friends (frequently accessed)
 INSERT INTO social_media (json_document) VALUES (
   JSON_OBJECT(
@@ -88,15 +93,99 @@ INSERT INTO social_media (json_document) VALUES (
 );
 
 COMMIT;
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 1 row created.
 1 row created.
 1 row created.
 Commit complete.
 ```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+  total_inserted NUMBER := 0;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('social_media');
+
+  -- User profile with subset of top friends (frequently accessed)
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "USER#123",
+        "type": "user",
+        "username": "jsmith",
+        "email": "jsmith@example.com",
+        "follower_count": 5247,
+        "top_friends": [
+          {"user_id": "USER#456", "username": "alice", "avatar": "https://..."},
+          {"user_id": "USER#789", "username": "bob", "avatar": "https://..."},
+          {"user_id": "USER#234", "username": "carol", "avatar": "https://..."}
+        ]
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
+
+  -- Complete friends list (paginated, for "See All Friends" view)
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "USER#123#FRIENDS#page1",
+        "type": "friends_page",
+        "user_id": "USER#123",
+        "page": 1,
+        "friends": []
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
+
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "USER#123#FRIENDS#page2",
+        "type": "friends_page",
+        "user_id": "USER#123",
+        "page": 2,
+        "friends": []
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
+
+  DBMS_OUTPUT.PUT_LINE('Commit complete.');
+  COMMIT;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+1 row created.
+1 row created.
+Commit complete.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 ```sql
 -- Query 1: Get user profile with top friends (fast, single query)
@@ -156,7 +245,12 @@ WHERE JSON_VALUE(json_document, '$._id') = 'USER#123#FRIENDS#page1';
 
 Add versioning to support schema evolution:
 
+**SQL Approach:**
+
+if type="sql"
+
 ```sql
+<copy>
 -- Version 1 schema
 INSERT INTO social_media (json_document) VALUES (
   JSON_OBJECT(
@@ -186,6 +280,64 @@ INSERT INTO social_media (json_document) VALUES (
     )
   )
 );
+</copy>
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('social_media');
+
+  -- Version 1 schema
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "PRODUCT#001",
+        "schema_version": 1,
+        "type": "product",
+        "name": "Widget",
+        "price": 29.99,
+        "category": "gadgets"
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (schema v1).');
+
+  -- Version 2 schema (added dimensions field)
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "PRODUCT#002",
+        "schema_version": 2,
+        "type": "product",
+        "name": "Gadget",
+        "price": 39.99,
+        "category": "gadgets",
+        "dimensions": {
+          "length": 10,
+          "width": 5,
+          "height": 3,
+          "unit": "cm"
+        }
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (schema v2).');
+END;
+/
+</copy>
+```
+
+/if
 
 -- Query handling multiple schema versions
 SELECT

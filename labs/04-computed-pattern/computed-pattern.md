@@ -110,6 +110,13 @@ CREATE TABLE social_data (
 );
 
 -- Insert a post with initial computed metrics
+
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 INSERT INTO social_data (json_document) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'POST#12345',
@@ -127,9 +134,74 @@ INSERT INTO social_data (json_document) VALUES (
     )
   )
 );
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('social_data');
+
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "POST#12345",
+        "type": "post",
+        "user_id": "USER-789",
+        "user_name": "Alice Smith",
+        "content": "Check out this amazing photo!",
+        "created_at": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '",
+        "engagement": {
+          "like_count": 0,
+          "comment_count": 0,
+          "share_count": 0,
+          "view_count": 0,
+          "last_updated": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
+        }
+      }')
+    )
+  );
+
+  IF status = 1 THEN
+    DBMS_OUTPUT.PUT_LINE('1 row created.');
+  END IF;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 -- Insert engagement events (individual documents)
 -- Note: We store these as separate documents but maintain computed totals in the post
+
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 INSERT INTO social_data (json_document) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'POST#12345#LIKE#USER-456',
@@ -140,6 +212,57 @@ INSERT INTO social_data (json_document) VALUES (
     'created_at' VALUE SYSTIMESTAMP
   )
 );
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('social_data');
+
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "POST#12345#LIKE#USER-456",
+        "type": "like",
+        "post_id": "POST#12345",
+        "user_id": "USER-456",
+        "user_name": "Bob Johnson",
+        "created_at": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
+      }')
+    )
+  );
+
+  IF status = 1 THEN
+    DBMS_OUTPUT.PUT_LINE('1 row created.');
+  END IF;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 -- Query the post (fast - single document read)
 SELECT JSON_QUERY(json_document, '$' PRETTY)
@@ -181,6 +304,13 @@ INSERT INTO social_data (json_document) VALUES (
 );
 
 -- 2. Increment the like_count in the post document
+
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 UPDATE social_data
 SET json_document = JSON_MERGEPATCH(
   json_document,
@@ -198,6 +328,83 @@ SET json_document = JSON_MERGEPATCH(
 WHERE JSON_VALUE(json_document, '$._id') = 'POST#12345';
 
 COMMIT;
+</copy>
+```
+
+Expected output:
+```
+1 row updated.
+
+Commit complete.
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  doc SODA_DOCUMENT_T;
+  doc_content CLOB;
+  current_count NUMBER;
+  merged_content CLOB;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('social_data');
+
+  -- Get the existing post document
+  doc := collection.find().key('POST#12345').get_one();
+
+  IF doc IS NOT NULL THEN
+    doc_content := doc.get_clob();
+
+    -- Extract current like_count
+    SELECT JSON_VALUE(doc_content, '$.engagement.like_count' RETURNING NUMBER)
+    INTO current_count
+    FROM DUAL;
+
+    -- Merge the incremented count
+    SELECT JSON_MERGEPATCH(doc_content, JSON_OBJECT(
+      'engagement' VALUE JSON_OBJECT(
+        'like_count' VALUE current_count + 1,
+        'last_updated' VALUE TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+      )
+    ))
+    INTO merged_content
+    FROM DUAL;
+
+    -- Replace with merged document
+    status := collection.find().key('POST#12345').replace_one(
+      SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
+    );
+
+    IF status = 1 THEN
+      DBMS_OUTPUT.PUT_LINE('1 row updated.');
+      DBMS_OUTPUT.PUT_LINE('');
+      DBMS_OUTPUT.PUT_LINE('Commit complete.');
+    END IF;
+
+    COMMIT;
+  END IF;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row updated.
+
+Commit complete.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 ```
 
 **Strategy 2: Batch Update (Eventual Consistency)**

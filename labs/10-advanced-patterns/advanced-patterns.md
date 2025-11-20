@@ -98,6 +98,255 @@ COMMIT;
 
 Expected output:
 ```
+3 rows created.
+
+Commit complete.
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('social_media');
+
+  -- User profile with subset of top friends
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "USER#123",
+        "type": "user",
+        "username": "jsmith",
+        "email": "jsmith@example.com",
+        "follower_count": 5247,
+        "top_friends": [
+          {"user_id": "USER#456", "username": "alice", "avatar": "https://..."},
+          {"user_id": "USER#789", "username": "bob", "avatar": "https://..."},
+          {"user_id": "USER#234", "username": "carol", "avatar": "https://..."}
+        ]
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE('1 row created (user profile).');
+
+  -- Complete friends list - page 1
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "USER#123#FRIENDS#page1",
+        "type": "friends_page",
+        "user_id": "USER#123",
+        "page": 1,
+        "friends": []
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE('1 row created (friends page 1).');
+
+  COMMIT;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created (user profile).
+1 row created (friends page 1).
+
+PL/SQL procedure successfully completed.
+```
+
+/if
+
+**MongoDB API Approach:**
+
+if type="mongodb"
+
+```javascript
+<copy>
+// Connect to Oracle using MongoDB API
+// mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+use mydb
+
+// User profile with subset of top friends (hot data)
+db.social_media.insertOne({
+  _id: "USER#123",
+  type: "user",
+  username: "jsmith",
+  email: "jsmith@example.com",
+  follower_count: 5247,
+
+  // Subset Pattern: Only top 10 friends embedded for quick access
+  top_friends: [
+    { user_id: "USER#456", username: "alice", avatar: "https://..." },
+    { user_id: "USER#789", username: "bob", avatar: "https://..." },
+    { user_id: "USER#234", username: "carol", avatar: "https://..." }
+    // ... 7 more
+  ]
+})
+
+// Complete friends list stored separately (cold data)
+// Only loaded when user clicks "See All Friends"
+db.social_media.insertOne({
+  _id: "USER#123#FRIENDS#page1",
+  type: "friends_page",
+  user_id: "USER#123",
+  page: 1,
+  friends: [
+    // All 1000 friends on page 1
+  ]
+})
+</copy>
+```
+
+Expected output:
+```javascript
+{
+  acknowledged: true,
+  insertedId: 'USER#123'
+}
+{
+  acknowledged: true,
+  insertedId: 'USER#123#FRIENDS#page1'
+}
+```
+
+> **MongoDB API**: Subset Pattern is common in MongoDB for performance. Store frequently accessed data (top friends) in main document, full dataset in separate documents with pagination.
+
+/if
+
+**REST API Approach:**
+
+if type="rest"
+
+```bash
+<copy>
+# Insert user profile with top friends subset
+curl -X POST \
+  "http://localhost:8080/ords/jsonuser/soda/latest/social_media" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "_id": "USER#123",
+    "type": "user",
+    "username": "jsmith",
+    "email": "jsmith@example.com",
+    "follower_count": 5247,
+    "top_friends": [
+      {"user_id": "USER#456", "username": "alice", "avatar": "https://..."},
+      {"user_id": "USER#789", "username": "bob", "avatar": "https://..."},
+      {"user_id": "USER#234", "username": "carol", "avatar": "https://..."}
+    ]
+  }'
+
+# Insert complete friends list (paginated)
+curl -X POST \
+  "http://localhost:8080/ords/jsonuser/soda/latest/social_media" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "_id": "USER#123#FRIENDS#page1",
+    "type": "friends_page",
+    "user_id": "USER#123",
+    "page": 1,
+    "friends": []
+  }'
+</copy>
+```
+
+Expected output:
+```json
+{
+  "id": "...",
+  "etag": "...",
+  "lastModified": "2024-11-19T10:30:00.000Z"
+}
+```
+
+> **REST API**: Subset Pattern optimizes REST API responses. Quick profile API returns user with top_friends. Separate paginated endpoint returns full friends list.
+
+/if
+
+**Python Approach:**
+
+if type="python"
+
+```python
+<copy>
+import oracledb
+
+connection = oracledb.connect(
+    user="jsonuser",
+    password="WelcomeJson#123",
+    dsn="localhost/FREEPDB1"
+)
+
+soda = connection.getSodaDatabase()
+collection = soda.openCollection("social_media")
+
+# Subset Pattern: User profile with top friends (hot data)
+user_profile = {
+    "_id": "USER#123",
+    "type": "user",
+    "username": "jsmith",
+    "email": "jsmith@example.com",
+    "follower_count": 5247,
+
+    # Frequently accessed subset - top 10 friends
+    "top_friends": [
+        {"user_id": "USER#456", "username": "alice", "avatar": "https://..."},
+        {"user_id": "USER#789", "username": "bob", "avatar": "https://..."},
+        {"user_id": "USER#234", "username": "carol", "avatar": "https://..."}
+        # ... 7 more for top 10
+    ]
+}
+
+collection.insertOne(user_profile)
+print("User profile created (with top friends subset)")
+
+# Complete friends list stored separately (cold data)
+# Loaded only when needed for "See All Friends" page
+friends_page = {
+    "_id": "USER#123#FRIENDS#page1",
+    "type": "friends_page",
+    "user_id": "USER#123",
+    "page": 1,
+    "friends": []  # Would contain all friends on this page
+}
+
+collection.insertOne(friends_page)
+print("Friends page 1 created")
+
+connection.commit()
+connection.close()
+</copy>
+```
+
+Expected output:
+```
+User profile created (with top friends subset)
+Friends page 1 created
+```
+
+> **Python**: Subset Pattern in Python data pipelines. Process and cache frequently accessed subsets separately from complete datasets for performance.
+
+**Subset Pattern Benefits:**
+- ✅ Fast profile loads (only top friends, ~2KB vs 500KB for all friends)
+- ✅ Reduced bandwidth for mobile apps
+- ✅ Pagination for complete data ("See All Friends")
+- ✅ 80/20 rule: 80% of accesses need only 20% of data
+
+/if
+
+Expected output:
+```
 1 row created.
 1 row created.
 1 row created.

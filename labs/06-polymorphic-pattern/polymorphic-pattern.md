@@ -147,7 +147,12 @@ PL/SQL procedure successfully completed.
 
 /if
 
+**SQL Approach:**
+
+if type="sql"
+
 ```sql
+<copy>
 -- Type 2: Withdrawal
 INSERT INTO transactions (json_document) VALUES (
   JSON_OBJECT(
@@ -161,14 +166,66 @@ INSERT INTO transactions (json_document) VALUES (
     'timestamp' VALUE SYSTIMESTAMP
   )
 );
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 1 row created.
 ```
 
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
 ```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('transactions');
+
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "ACCOUNT#ACC-789#TXN#002",
+        "type": "withdrawal",
+        "account_id": "ACC-789",
+        "amount": 250.00,
+        "method": "atm",
+        "atm_location": "Main St Branch",
+        "fee": 2.50,
+        "timestamp": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
+      }')
+    )
+  );
+
+  IF status = 1 THEN
+    DBMS_OUTPUT.PUT_LINE('1 row created.');
+  END IF;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
+
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 -- Type 3: Transfer
 INSERT INTO transactions (json_document) VALUES (
   JSON_OBJECT(
@@ -183,13 +240,65 @@ INSERT INTO transactions (json_document) VALUES (
 );
 
 COMMIT;
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 1 row created.
 Commit complete.
 ```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('transactions');
+
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "ACCOUNT#ACC-789#TXN#003",
+        "type": "transfer",
+        "from_account": "ACC-789",
+        "to_account": "ACC-456",
+        "amount": 500.00,
+        "memo": "Rent payment",
+        "timestamp": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
+      }')
+    )
+  );
+
+  IF status = 1 THEN
+    DBMS_OUTPUT.PUT_LINE('1 row created.');
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Commit complete.');
+  END IF;
+
+  COMMIT;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+
+Commit complete.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 ```sql
 -- Query all transactions for an account
@@ -249,7 +358,12 @@ CREATE TABLE products (
 Table created.
 ```
 
+**SQL Approach:**
+
+if type="sql"
+
 ```sql
+<copy>
 -- Type 1: Book
 INSERT INTO products (json_document) VALUES (
   JSON_OBJECT(
@@ -300,15 +414,111 @@ INSERT INTO products (json_document) VALUES (
 );
 
 COMMIT;
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 1 row created.
 1 row created.
 1 row created.
 Commit complete.
 ```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+  total_inserted NUMBER := 0;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('products');
+
+  -- Type 1: Book
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "PRODUCT#BOOK-001",
+        "type": "book",
+        "category": "books",
+        "title": "Database Design Patterns",
+        "author": "Jane Smith",
+        "isbn": "978-0-123456-78-9",
+        "pages": 420,
+        "publisher": "Tech Publishing",
+        "price": 49.99
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
+
+  -- Type 2: Electronics
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "PRODUCT#ELEC-001",
+        "type": "electronics",
+        "category": "electronics",
+        "name": "Wireless Mouse",
+        "brand": "TechCo",
+        "model": "WM-2024",
+        "warranty_months": 24,
+        "specifications": {
+          "connectivity": "Bluetooth 5.0",
+          "battery_life": "6 months",
+          "dpi": 1600
+        },
+        "price": 29.99
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
+
+  -- Type 3: Clothing
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "PRODUCT#CLOTH-001",
+        "type": "clothing",
+        "category": "clothing",
+        "name": "Cotton T-Shirt",
+        "brand": "FashionCo",
+        "sizes": ["S", "M", "L", "XL"],
+        "colors": ["black", "white", "blue"],
+        "material": "100% Cotton",
+        "price": 19.99
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
+
+  DBMS_OUTPUT.PUT_LINE('Commit complete.');
+  COMMIT;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+1 row created.
+1 row created.
+Commit complete.
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 ## Task 3: Indexing Strategies for Polymorphic Collections
 

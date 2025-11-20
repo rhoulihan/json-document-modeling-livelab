@@ -19,9 +19,11 @@ In this lab, you will:
 * Implement composite key strategies (delimiter-based, hierarchical, date-based)
 * Apply strategic denormalization to eliminate application-level joins
 * Store multiple entity types in a single collection using polymorphic documents
+* Implement many-to-many relationships using arrays with multivalue indexes
+* Use hierarchical path queries to aggregate related documents
 * Avoid the 32MB OSON limit and LOB performance cliffs
 * Measure query performance improvements over multi-collection approach
-* Design for common access patterns in e-commerce scenarios
+* Design for common access patterns in e-commerce and enterprise scenarios
 
 ### Prerequisites
 
@@ -1457,6 +1459,467 @@ Let's implement a complete e-commerce system using Single Collection pattern.
      JSON_VALUE(c.json_document, '$.loyalty_tier');
    ```
 
+## Task 8: Many-to-Many Relationships with Multivalue Indexes - Enterprise Content Management
+
+In enterprise environments, shared assets like documents, images, templates, and specifications often belong to multiple projects simultaneously. When these artifacts have high rates of change (version updates, metadata changes, approvals), embedding them creates write amplification and stale data problems. This task demonstrates how to use **arrays of references with multivalue indexes** to implement many-to-many relationships that scale.
+
+### The Problem: Embedded References for Shared Assets
+
+**Scenario:** A company has design templates, legal documents, and brand assets shared across 20+ active projects. When a template is updated, all projects using it must reflect the change immediately.
+
+**❌ Anti-Pattern: Embedding Document Content**
+
+```json
+// Project document with embedded template
+{
+  "_id": "PROJECT#acme-website",
+  "type": "project",
+  "name": "ACME Website Redesign",
+  "templates": [
+    {
+      "id": "TMPL-header-001",
+      "name": "Header Template v2.1",
+      "content": "<!DOCTYPE html>...",  // 50KB embedded
+      "lastModified": "2024-11-18",
+      "approvedBy": "design-team"
+    },
+    {
+      "id": "TMPL-footer-001",
+      "content": "...",  // Another 30KB
+      ...
+    }
+  ]
+}
+```
+
+**Problems:**
+- ❌ Template updated → Must update 20 project documents (write amplification)
+- ❌ Documents bloat (project doc grows from 5KB to 200KB)
+- ❌ Risk of stale data if updates miss some projects
+- ❌ Duplicate storage of same template in 20 locations
+
+### ✅ Solution: Array of Project Paths with Multivalue Index
+
+**Pattern:** Store artifacts once, track all project locations in an array
+
+```json
+// Artifact document (single source of truth)
+{
+  "_id": "ARTIFACT#TMPL-header-001",
+  "type": "artifact",
+  "artifactType": "template",
+  "name": "Corporate Header Template",
+  "version": "2.1",
+  "content": "<!DOCTYPE html>...",  // 50KB stored once
+  "lastModified": "2024-11-18T14:30:00Z",
+  "approvedBy": "design-team",
+  "projectPaths": [
+    "/acme/website/frontend/templates",
+    "/acme/mobile-app/ui/headers",
+    "/acme/partner-portal/layouts",
+    "/internal/design-system/components",
+    "/marketing/email-templates/headers"
+  ]
+}
+```
+
+**Benefits:**
+- ✅ Update artifact once → Immediately reflected in all 20 projects
+- ✅ No duplication → 50KB stored once, not 20 times
+- ✅ No stale data → Single source of truth
+- ✅ Multivalue index on `projectPaths` array → Fast hierarchical queries
+
+### Step 1: Create Artifact Collection with Multivalue Index
+
+1. Create collection for shared artifacts:
+
+   ```sql
+   CREATE TABLE enterprise_artifacts (
+     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+     json_document JSON,
+     created_on TIMESTAMP DEFAULT SYSTIMESTAMP
+   );
+   ```
+
+2. Create multivalue index on the projectPaths array:
+
+   ```sql
+   -- Multivalue index on array elements
+   CREATE INDEX idx_artifact_project_paths
+   ON enterprise_artifacts (
+     JSON_VALUE(json_document, '$.projectPaths[*]' RETURNING VARCHAR2(500))
+   );
+
+   -- Index on artifact type for filtering
+   CREATE INDEX idx_artifact_type
+   ON enterprise_artifacts (JSON_VALUE(json_document, '$.artifactType'));
+   ```
+
+   **Expected Output:**
+   ```
+   Table created.
+   Index created.
+   Index created.
+   ```
+
+### Step 2: Insert Shared Artifacts
+
+1. Insert a template used across multiple projects:
+
+   ```sql
+   INSERT INTO enterprise_artifacts (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ARTIFACT#TMPL-header-001',
+       'type' VALUE 'artifact',
+       'artifactType' VALUE 'template',
+       'name' VALUE 'Corporate Header Template',
+       'version' VALUE '2.1',
+       'fileName' VALUE 'header_v2.1.html',
+       'sizeBytes' VALUE 51200,
+       'lastModified' VALUE '2024-11-18T14:30:00Z',
+       'modifiedBy' VALUE 'USER#jane-designer',
+       'approvedBy' VALUE 'design-team',
+       'projectPaths' VALUE JSON_ARRAY(
+         '/acme/website/frontend/templates',
+         '/acme/mobile-app/ui/headers',
+         '/acme/partner-portal/layouts',
+         '/internal/design-system/components',
+         '/marketing/email-templates/headers'
+       ),
+       'metadata' VALUE JSON_OBJECT(
+         'license' VALUE 'internal-use-only',
+         'category' VALUE 'ui-component',
+         'tags' VALUE JSON_ARRAY('header', 'responsive', 'branded')
+       )
+     )
+   );
+   ```
+
+2. Insert a legal document shared across business units:
+
+   ```sql
+   INSERT INTO enterprise_artifacts (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ARTIFACT#DOC-privacy-policy',
+       'type' VALUE 'artifact',
+       'artifactType' VALUE 'legal-document',
+       'name' VALUE 'Privacy Policy - GDPR Compliant',
+       'version' VALUE '3.0',
+       'fileName' VALUE 'privacy_policy_v3.pdf',
+       'sizeBytes' VALUE 245000,
+       'lastModified' VALUE '2024-11-15T09:00:00Z',
+       'modifiedBy' VALUE 'USER#legal-team',
+       'approvedBy' VALUE 'legal,compliance',
+       'projectPaths' VALUE JSON_ARRAY(
+         '/acme/website/legal/policies',
+         '/acme/mobile-app/settings/legal',
+         '/acme/partner-portal/footer/legal',
+         '/acme/customer-portal/help/legal'
+       ),
+       'metadata' VALUE JSON_OBJECT(
+         'requiresAcknowledgment' VALUE true,
+         'effectiveDate' VALUE '2024-12-01',
+         'jurisdiction' VALUE 'EU,US,UK'
+       )
+     )
+   );
+   ```
+
+3. Insert a brand asset used everywhere:
+
+   ```sql
+   INSERT INTO enterprise_artifacts (json_document) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ARTIFACT#IMG-logo-primary',
+       'type' VALUE 'artifact',
+       'artifactType' VALUE 'image',
+       'name' VALUE 'ACME Primary Logo',
+       'version' VALUE '1.5',
+       'fileName' VALUE 'acme_logo_primary.svg',
+       'sizeBytes' VALUE 12800,
+       'lastModified' VALUE '2024-10-01T10:00:00Z',
+       'modifiedBy' VALUE 'USER#brand-team',
+       'approvedBy' VALUE 'marketing,legal',
+       'projectPaths' VALUE JSON_ARRAY(
+         '/acme/website/assets/images',
+         '/acme/mobile-app/assets/logos',
+         '/acme/partner-portal/branding',
+         '/marketing/campaigns/2024-q4',
+         '/marketing/social-media/assets',
+         '/internal/presentations/templates',
+         '/sales/proposals/assets'
+       ),
+       'metadata' VALUE JSON_OBJECT(
+         'format' VALUE 'SVG',
+         'colorProfile' VALUE 'RGB',
+         'usageRights' VALUE 'all-channels'
+       )
+     )
+   );
+   ```
+
+   **Expected Output:**
+   ```
+   1 row created.
+   1 row created.
+   1 row created.
+   ```
+
+### Step 3: Query Artifacts by Project Path (Exact Match)
+
+1. Find all artifacts used in the website project:
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.name') AS artifact_name,
+     JSON_VALUE(json_document, '$.artifactType') AS type,
+     JSON_VALUE(json_document, '$.version') AS version,
+     JSON_VALUE(json_document, '$.lastModified') AS last_modified
+   FROM enterprise_artifacts
+   WHERE JSON_EXISTS(json_document, '$.projectPaths[*]?(@ == "/acme/website/frontend/templates")');
+   ```
+
+   **Expected Output:**
+   ```
+   ARTIFACT_NAME                    TYPE        VERSION  LAST_MODIFIED
+   -------------------------------- ----------- -------- --------------------
+   Corporate Header Template        template    2.1      2024-11-18T14:30:00Z
+   ```
+
+### Step 4: Hierarchical Queries - Find All Artifacts at or Below a Path
+
+**Key Feature:** Use LIKE queries to find all artifacts associated with a project and all its sub-projects.
+
+1. Find all artifacts used in the ACME website project (any subpath):
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.name') AS artifact_name,
+     JSON_VALUE(json_document, '$.artifactType') AS type,
+     JSON_QUERY(json_document, '$.projectPaths' RETURNING VARCHAR2(1000) PRETTY) AS project_paths
+   FROM enterprise_artifacts
+   WHERE JSON_EXISTS(json_document, '$.projectPaths[*]?(@ starts with "/acme/website")');
+   ```
+
+   **Expected Output:**
+   ```
+   ARTIFACT_NAME                    TYPE             PROJECT_PATHS
+   -------------------------------- ---------------- ---------------------------------
+   Corporate Header Template        template         [
+                                                       "/acme/website/frontend/templates",
+                                                       ...
+                                                     ]
+   Privacy Policy - GDPR Compliant  legal-document   [
+                                                       "/acme/website/legal/policies",
+                                                       ...
+                                                     ]
+   ACME Primary Logo                image            [
+                                                       "/acme/website/assets/images",
+                                                       ...
+                                                     ]
+   ```
+
+2. Find all artifacts used in ALL marketing projects:
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.name') AS artifact_name,
+     JSON_VALUE(json_document, '$.artifactType') AS type,
+     JSON_VALUE(json_document, '$.version') AS version,
+     COUNT(*) OVER (PARTITION BY JSON_VALUE(json_document, '$._id')) as path_count
+   FROM enterprise_artifacts
+   WHERE JSON_EXISTS(json_document, '$.projectPaths[*]?(@ starts with "/marketing")')
+   ORDER BY artifact_name;
+   ```
+
+   **Expected Output:**
+   ```
+   ARTIFACT_NAME                    TYPE        VERSION  PATH_COUNT
+   -------------------------------- ----------- -------- ----------
+   ACME Primary Logo                image       1.5      2
+   Corporate Header Template        template    2.1      1
+   ```
+
+### Step 5: Update Artifact - Immediate Reflection Everywhere
+
+**Key Benefit:** Update the artifact once, and it's immediately visible to all projects referencing it.
+
+1. Update the header template version:
+
+   ```sql
+   UPDATE enterprise_artifacts
+   SET json_document = JSON_TRANSFORM(
+     json_document,
+     SET '$.version' = '2.2',
+     SET '$.lastModified' = '2024-11-19T10:00:00Z',
+     SET '$.modifiedBy' = 'USER#bob-developer'
+   )
+   WHERE JSON_VALUE(json_document, '$._id') = 'ARTIFACT#TMPL-header-001';
+
+   COMMIT;
+   ```
+
+2. Verify update is reflected across ALL project paths:
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.name') AS artifact_name,
+     JSON_VALUE(json_document, '$.version') AS version,
+     JSON_VALUE(json_document, '$.lastModified') AS last_modified,
+     JSON_VALUE(json_document, '$.projectPaths' RETURNING VARCHAR2(2000)) AS paths
+   FROM enterprise_artifacts
+   WHERE JSON_VALUE(json_document, '$._id') = 'ARTIFACT#TMPL-header-001';
+   ```
+
+   **Expected Output:**
+   ```
+   ARTIFACT_NAME                    VERSION  LAST_MODIFIED          PATHS
+   -------------------------------- -------- ---------------------- --------------------------------------
+   Corporate Header Template        2.2      2024-11-19T10:00:00Z   ["/acme/website/frontend/templates",
+                                                                      "/acme/mobile-app/ui/headers",
+                                                                      "/acme/partner-portal/layouts",
+                                                                      "/internal/design-system/components",
+                                                                      "/marketing/email-templates/headers"]
+   ```
+
+   **Result:** ✅ One update, instantly visible in all 5 projects. No write amplification, no stale data!
+
+### Step 6: Add New Project Location to Existing Artifact
+
+1. A new project starts using the logo - just append to the array:
+
+   ```sql
+   UPDATE enterprise_artifacts
+   SET json_document = JSON_TRANSFORM(
+     json_document,
+     APPEND '$.projectPaths' = '/acme/investor-relations/assets'
+   )
+   WHERE JSON_VALUE(json_document, '$._id') = 'ARTIFACT#IMG-logo-primary';
+
+   COMMIT;
+   ```
+
+2. Verify the new path is added:
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.name') AS artifact_name,
+     JSON_QUERY(json_document, '$.projectPaths' RETURNING VARCHAR2(2000) PRETTY) AS project_paths
+   FROM enterprise_artifacts
+   WHERE JSON_VALUE(json_document, '$._id') = 'ARTIFACT#IMG-logo-primary';
+   ```
+
+   **Expected Output:**
+   ```
+   ARTIFACT_NAME          PROJECT_PATHS
+   ---------------------- --------------------------------------------
+   ACME Primary Logo      [
+                            "/acme/website/assets/images",
+                            "/acme/mobile-app/assets/logos",
+                            ...
+                            "/acme/investor-relations/assets"
+                          ]
+   ```
+
+### Step 7: Aggregate Queries - Project Asset Reports
+
+1. Count artifacts by type used in website project:
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.artifactType') AS artifact_type,
+     COUNT(*) AS artifact_count,
+     SUM(JSON_VALUE(json_document, '$.sizeBytes' RETURNING NUMBER)) AS total_bytes
+   FROM enterprise_artifacts
+   WHERE JSON_EXISTS(json_document, '$.projectPaths[*]?(@ starts with "/acme/website")')
+   GROUP BY JSON_VALUE(json_document, '$.artifactType')
+   ORDER BY artifact_count DESC;
+   ```
+
+   **Expected Output:**
+   ```
+   ARTIFACT_TYPE      ARTIFACT_COUNT  TOTAL_BYTES
+   ------------------ -------------- ------------
+   template           1              51200
+   legal-document     1              245000
+   image              1              12800
+   ```
+
+2. Find artifacts used in the most projects:
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.name') AS artifact_name,
+     JSON_VALUE(json_document, '$.artifactType') AS type,
+     JSON_VALUE(json_document, '$.projectPaths' RETURNING VARCHAR2(4000) FORMAT JSON) AS paths,
+     (SELECT COUNT(*)
+      FROM JSON_TABLE(json_document, '$.projectPaths[*]' COLUMNS (path VARCHAR2(500) PATH '$'))
+     ) AS project_count
+   FROM enterprise_artifacts
+   ORDER BY project_count DESC;
+   ```
+
+   **Expected Output:**
+   ```
+   ARTIFACT_NAME          TYPE        PROJECT_COUNT
+   ---------------------- ----------- -------------
+   ACME Primary Logo      image       8
+   Corporate Header...    template    5
+   Privacy Policy...      legal-doc   4
+   ```
+
+### Key Benefits of This Pattern
+
+**✅ Single Source of Truth**
+- Artifact content stored once
+- Updates propagate instantly to all projects
+- No stale data, no synchronization issues
+
+**✅ Eliminates Write Amplification**
+- Update 1 document instead of 20
+- Embedded approach: 20 writes for template update
+- Array approach: 1 write affects all references
+
+**✅ Efficient Storage**
+- 50KB template stored once, not duplicated 20 times
+- Saves 950KB in this example alone
+- Scales to thousands of shared assets
+
+**✅ Fast Hierarchical Queries**
+- Multivalue index on projectPaths array
+- Find all assets at `/acme/website` and below
+- Sub-5ms query performance with proper indexing
+
+**✅ Flexible Many-to-Many Relationships**
+- Artifact can belong to unlimited projects
+- Project can reference unlimited artifacts
+- No junction table needed
+- Bidirectional queries supported
+
+### When to Use Array-Based Many-to-Many
+
+**✓ Use this pattern when:**
+- Shared resources belong to multiple entities
+- High rate of change requires single source of truth
+- Need hierarchical or path-based queries
+- Array size is bounded (< 1000 references per document)
+- Need to avoid write amplification
+
+**✗ Don't use when:**
+- Array could grow unbounded (> 10,000 items)
+- Need complex filtering on array elements (better as separate docs)
+- Relationships change more frequently than content
+
+### Comparison with Alternatives
+
+| Approach | Storage | Update Cost | Query Speed | Stale Data Risk |
+|----------|---------|-------------|-------------|-----------------|
+| **Array of Paths** (This pattern) | 1x | 1 write | Fast (indexed) | None |
+| Embedded Content | 20x | 20 writes | Fast | High |
+| Separate Junction Collection | 1x | 1-2 writes | Slow (join) | None |
+
+**Winner:** Array-based pattern combines best of both worlds!
+
 ## Task 7: Anti-Patterns to Avoid
 
 ### What NOT to Do
@@ -1543,9 +2006,12 @@ Congratulations! You have learned the **Single Collection/Table Design pattern**
 * ✅ Composite key strategies (delimiter-based, hierarchical, date-based)
 * ✅ Strategic denormalization framework (when to denormalize, when not to)
 * ✅ Storing multiple entity types in single collection (polymorphic documents)
+* ✅ Many-to-many relationships using arrays with multivalue indexes
+* ✅ Hierarchical path queries with startsWith for aggregation
+* ✅ Eliminating write amplification with single source of truth pattern
 * ✅ Avoiding the 32MB OSON limit and LOB performance cliffs
 * ✅ Measuring query performance improvements
-* ✅ Real-world e-commerce implementation
+* ✅ Real-world e-commerce and enterprise content management implementations
 * ✅ Anti-patterns to avoid
 
 ### Key Performance Results
@@ -1562,6 +2028,7 @@ Before implementing, ask yourself:
 - [ ] What are my access patterns? (start here, not entities)
 - [ ] What data is accessed together? (denormalize it)
 - [ ] What data changes frequently? (don't denormalize it)
+- [ ] Do I have shared resources that belong to many entities? (use arrays + multivalue indexes)
 - [ ] Are my documents < 7,950 bytes? (target 80%+)
 - [ ] Am I using composite keys for hierarchical relationships?
 - [ ] Have I included a "type" discriminator for polymorphic documents?

@@ -188,7 +188,12 @@ Use indexed attributes instead when:
 
 3. Insert customer entity:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO ecommerce_single (json_document) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'CUSTOMER#CUST-456',
@@ -202,11 +207,69 @@ Use indexed attributes instead when:
        'lifetime_value' VALUE 12450.00
      )
    );
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('ecommerce_single');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "CUSTOMER#CUST-456",
+           "type": "customer",
+           "name": "Alice Johnson",
+           "email": "alice@email.com",
+           "phone": "+1-555-0123",
+           "created": "2024-01-15T10:00:00Z",
+           "loyalty_tier": "gold",
+           "total_orders": 127,
+           "lifetime_value": 12450.00
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 4. Insert order entity (same collection):
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO ecommerce_single (json_document) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'CUSTOMER#CUST-456#ORDER#ORD-001',
@@ -238,7 +301,78 @@ Use indexed attributes instead when:
        'total' VALUE 114.45
      )
    );
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('ecommerce_single');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "CUSTOMER#CUST-456#ORDER#ORD-001",
+           "type": "order",
+           "customer_id": "CUST-456",
+           "customer_name": "Alice Johnson",
+           "customer_email": "alice@email.com",
+           "order_date": "2024-11-15T10:30:00Z",
+           "status": "shipped",
+           "items": [
+             {
+               "product_id": "PROD-789",
+               "name": "Wireless Headphones",
+               "price": 79.99,
+               "quantity": 1,
+               "subtotal": 79.99
+             },
+             {
+               "product_id": "PROD-234",
+               "name": "USB-C Cable",
+               "price": 12.99,
+               "quantity": 2,
+               "subtotal": 25.98
+             }
+           ],
+           "subtotal": 105.97,
+           "tax": 8.48,
+           "shipping": 0.00,
+           "total": 114.45
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 5. Query by exact key:
 
@@ -297,11 +431,62 @@ Alternative approach using JSON object as _id:
 
 1. Insert with hierarchical key:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO ecommerce_single (json_document) VALUES (
      '{"_id": {"customer_id": "CUST-789", "order_id": "ORD-002"}, "type": "order", "customer_name": "Bob Martinez", "order_date": "2024-11-16T14:00:00Z", "total": 299.99}'
    );
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+     json_string VARCHAR2(4000);
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('ecommerce_single');
+
+     json_string := '{"_id": {"customer_id": "CUST-789", "order_id": "ORD-002"}, "type": "order", "customer_name": "Bob Martinez", "order_date": "2024-11-16T14:00:00Z", "total": 299.99}';
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw(json_string)
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 2. Query with hierarchical key:
 
@@ -323,7 +508,12 @@ For time-series data, include date in the key:
 
 1. Insert sensor reading:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO ecommerce_single (json_document) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'SENSOR#temp001#2024-11-18#14:00',
@@ -335,7 +525,58 @@ For time-series data, include date in the key:
        'location' VALUE 'warehouse_A'
      )
    );
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('ecommerce_single');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "SENSOR#temp001#2024-11-18#14:00",
+           "type": "sensor_reading",
+           "sensor_id": "temp001",
+           "timestamp": "2024-11-18T14:00:00Z",
+           "temperature": 72.5,
+           "humidity": 45.2,
+           "location": "warehouse_A"
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 2. Query by date range:
 
@@ -383,7 +624,12 @@ Strategic denormalization is the practice of intentionally duplicating data that
 
 1. Insert order with denormalized customer and product data:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO ecommerce_single (json_document) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'CUSTOMER#CUST-456#ORDER#ORD-003',
@@ -429,7 +675,91 @@ Strategic denormalization is the practice of intentionally duplicating data that
    );
 
    COMMIT;
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   Commit complete.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('ecommerce_single');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "CUSTOMER#CUST-456#ORDER#ORD-003",
+           "type": "order",
+           "customer": {
+             "id": "CUST-456",
+             "name": "Alice Johnson",
+             "email": "alice@email.com",
+             "phone": "+1-555-0123",
+             "loyalty_tier": "gold",
+             "snapshot_date": "2024-11-18"
+           },
+           "shipping_address": {
+             "street": "123 Main Street",
+             "city": "San Francisco",
+             "state": "CA",
+             "zip": "94105",
+             "country": "USA"
+           },
+           "items": [
+             {
+               "product_id": "PROD-789",
+               "name": "Wireless Headphones",
+               "sku": "WH-BT-789",
+               "price": 79.99,
+               "quantity": 1,
+               "subtotal": 79.99,
+               "category": "Electronics",
+               "brand": "AudioTech"
+             }
+           ],
+           "order_date": "2024-11-18T10:30:00Z",
+           "status": "processing",
+           "total": 87.99
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE('Commit complete.');
+     END IF;
+
+     COMMIT;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   Commit complete.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 2. Query order (single query, all data):
 
@@ -1566,7 +1896,12 @@ In enterprise environments, shared assets like documents, images, templates, and
 
 1. Insert a template used across multiple projects:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    INSERT INTO enterprise_artifacts (json_document) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'ARTIFACT#TMPL-header-001',
@@ -1593,7 +1928,73 @@ In enterprise environments, shared assets like documents, images, templates, and
        )
      )
    );
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('enterprise_artifacts');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "ARTIFACT#TMPL-header-001",
+           "type": "artifact",
+           "artifactType": "template",
+           "name": "Corporate Header Template",
+           "version": "2.1",
+           "fileName": "header_v2.1.html",
+           "sizeBytes": 51200,
+           "lastModified": "2024-11-18T14:30:00Z",
+           "modifiedBy": "USER#jane-designer",
+           "approvedBy": "design-team",
+           "projectPaths": [
+             "/acme/website/frontend/templates",
+             "/acme/mobile-app/ui/headers",
+             "/acme/partner-portal/layouts",
+             "/internal/design-system/components",
+             "/marketing/email-templates/headers"
+           ],
+           "metadata": {
+             "license": "internal-use-only",
+             "category": "ui-component",
+             "tags": ["header", "responsive", "branded"]
+           }
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 2. Insert a legal document shared across business units:
 
@@ -1740,7 +2141,12 @@ In enterprise environments, shared assets like documents, images, templates, and
 
 1. Update the header template version:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    UPDATE enterprise_artifacts
    SET json_document = JSON_TRANSFORM(
      json_document,
@@ -1751,7 +2157,76 @@ In enterprise environments, shared assets like documents, images, templates, and
    WHERE JSON_VALUE(json_document, '$._id') = 'ARTIFACT#TMPL-header-001';
 
    COMMIT;
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     doc SODA_DOCUMENT_T;
+     doc_content CLOB;
+     merged_content CLOB;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('enterprise_artifacts');
+
+     -- Get the existing document
+     doc := collection.find().key('ARTIFACT#TMPL-header-001').get_one();
+
+     IF doc IS NOT NULL THEN
+       doc_content := doc.get_clob();
+
+       -- Merge the updates using JSON_MERGEPATCH
+       SELECT JSON_MERGEPATCH(doc_content, '{
+         "version": "2.2",
+         "lastModified": "2024-11-19T10:00:00Z",
+         "modifiedBy": "USER#bob-developer"
+       }')
+       INTO merged_content
+       FROM DUAL;
+
+       -- Replace with merged document
+       status := collection.find().key('ARTIFACT#TMPL-header-001').replace_one(
+         SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
+       );
+
+       IF status = 1 THEN
+         DBMS_OUTPUT.PUT_LINE('1 row updated.');
+         DBMS_OUTPUT.PUT_LINE('');
+         DBMS_OUTPUT.PUT_LINE('Commit complete.');
+       END IF;
+
+       COMMIT;
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
    **Expected Output:**
    ```
@@ -1786,7 +2261,12 @@ In enterprise environments, shared assets like documents, images, templates, and
 
 1. A new project starts using the logo - just append to the array:
 
+   **SQL Approach:**
+
+if type="sql"
+
    ```sql
+   <copy>
    UPDATE enterprise_artifacts
    SET json_document = JSON_TRANSFORM(
      json_document,
@@ -1795,7 +2275,77 @@ In enterprise environments, shared assets like documents, images, templates, and
    WHERE JSON_VALUE(json_document, '$._id') = 'ARTIFACT#IMG-logo-primary';
 
    COMMIT;
+   </copy>
    ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+   ```
+
+/if
+
+   **SODA Approach:**
+
+if type="soda"
+
+   > **Note:** SODA doesn't have a direct APPEND operation. Use fetch-transform-replace pattern:
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     doc SODA_DOCUMENT_T;
+     doc_content CLOB;
+     transformed_content CLOB;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('enterprise_artifacts');
+
+     -- Get the existing document
+     doc := collection.find().key('ARTIFACT#IMG-logo-primary').get_one();
+
+     IF doc IS NOT NULL THEN
+       doc_content := doc.get_clob();
+
+       -- Use JSON_TRANSFORM APPEND in SQL to add to array
+       SELECT JSON_TRANSFORM(
+         doc_content,
+         APPEND '$.projectPaths' = '/acme/investor-relations/assets'
+       )
+       INTO transformed_content
+       FROM DUAL;
+
+       -- Replace with transformed document
+       status := collection.find().key('ARTIFACT#IMG-logo-primary').replace_one(
+         SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(transformed_content))
+       );
+
+       IF status = 1 THEN
+         DBMS_OUTPUT.PUT_LINE('1 row updated.');
+         DBMS_OUTPUT.PUT_LINE('');
+         DBMS_OUTPUT.PUT_LINE('Commit complete.');
+       END IF;
+
+       COMMIT;
+     END IF;
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+
+   PL/SQL procedure successfully completed.
+   ```
+
+/if
 
 2. Verify the new path is added:
 

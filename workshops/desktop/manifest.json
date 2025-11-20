@@ -32,7 +32,8 @@
     {
       "title": "Lab 3: Single Collection/Table Design",
       "description": "Master the most critical NoSQL pattern for 10-20x performance gains",
-      "filename": "../../labs/03-single-collection/single-collection.md"
+      "filename": "../../labs/03-single-collection/single-collection.md",
+      "type": "sql,soda"
     },
     {
       "title": "Need Help?",

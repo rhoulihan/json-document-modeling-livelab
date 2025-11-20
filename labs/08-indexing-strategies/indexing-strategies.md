@@ -72,7 +72,14 @@ Index created.
 -- 1. Exact match: WHERE _id = 'CUSTOMER#456'
 -- 2. Prefix match: WHERE _id LIKE 'CUSTOMER#456#%'
 -- 3. Range queries: WHERE _id >= 'X' AND _id < 'Y'
+```
 
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 -- Load test data
 BEGIN
   -- Insert customer
@@ -101,12 +108,75 @@ BEGIN
   COMMIT;
 END;
 /
+</copy>
 ```
 
-**Expected output:**
+Expected output:
 ```
 PL/SQL procedure successfully completed.
 ```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+  total_inserted NUMBER := 0;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('ecommerce');
+
+  -- Insert customer
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "CUSTOMER#456",
+        "type": "customer",
+        "name": "John Doe",
+        "email": "john@example.com"
+      }')
+    )
+  );
+  total_inserted := total_inserted + status;
+
+  -- Insert 100 orders
+  FOR i IN 1..100 LOOP
+    status := collection.insert_one(
+      SODA_DOCUMENT_T(
+        b_content => UTL_RAW.cast_to_raw(
+          '{' ||
+          '"_id": "CUSTOMER#456#ORDER#' || LPAD(i, 5, '0') || '",' ||
+          '"type": "order",' ||
+          '"customer_id": "CUSTOMER#456",' ||
+          '"order_date": "' || TO_CHAR(SYSTIMESTAMP - INTERVAL '1' DAY * i, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '",' ||
+          '"total": ' || ROUND(DBMS_RANDOM.VALUE(50, 500), 2) ||
+          '}'
+        )
+      )
+    );
+    total_inserted := total_inserted + status;
+  END LOOP;
+
+  DBMS_OUTPUT.PUT_LINE(total_inserted || ' documents inserted (1 customer + 100 orders).');
+  COMMIT;
+END;
+/
+</copy>
+```
+
+Expected output:
+```
+101 documents inserted (1 customer + 100 orders).
+
+PL/SQL procedure successfully completed.
+```
+
+/if
 
 ```sql
 -- Test composite key index performance
@@ -220,7 +290,12 @@ ORDER BY JSON_VALUE(json_document, '$.order_date' RETURNING TIMESTAMP) DESC;
 
 Multivalue indexes allow indexing individual elements within JSON arrays:
 
+**SQL Approach:**
+
+if type="sql"
+
 ```sql
+<copy>
 -- Add orders with items array
 BEGIN
   FOR i IN 1..10 LOOP
@@ -242,7 +317,55 @@ BEGIN
   COMMIT;
 END;
 /
+</copy>
 ```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+  total_inserted NUMBER := 0;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('ecommerce');
+
+  -- Add orders with items array
+  FOR i IN 1..10 LOOP
+    status := collection.insert_one(
+      SODA_DOCUMENT_T(
+        b_content => UTL_RAW.cast_to_raw(
+          '{' ||
+          '"_id": "CUSTOMER#456#ORDER#' || LPAD(100 + i, 5, '0') || '",' ||
+          '"type": "order",' ||
+          '"customer_id": "CUSTOMER#456",' ||
+          '"order_date": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '",' ||
+          '"items": [' ||
+            '{"sku": "WIDGET-001", "quantity": 2},' ||
+            '{"sku": "GADGET-042", "quantity": 1},' ||
+            '{"sku": "TOOL-' || LPAD(i, 3, '0') || '", "quantity": 3}' ||
+          '],' ||
+          '"total": 125.50' ||
+          '}'
+        )
+      )
+    );
+    total_inserted := total_inserted + status;
+  END LOOP;
+
+  DBMS_OUTPUT.PUT_LINE(total_inserted || ' orders inserted with items arrays.');
+  COMMIT;
+END;
+/
+</copy>
+```
+
+/if
 
 ### Step 2: Create Multivalue Index
 

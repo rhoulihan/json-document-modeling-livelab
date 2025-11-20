@@ -20,7 +20,8 @@
     {
       "title": "Lab 1: JSON Collections Fundamentals",
       "description": "Master CRUD operations, OSON format, and basic indexing",
-      "filename": "../../labs/01-fundamentals/fundamentals.md"
+      "filename": "../../labs/01-fundamentals/fundamentals.md",
+      "type": "sql,soda"
     },
     {
       "title": "Lab 2: Embedded vs Referenced Patterns",

@@ -123,9 +123,11 @@ Both approaches use OSON format and provide identical query performance.
 
 Let's populate our collections with sample data representing an e-commerce product catalog.
 
-### Step 1: Insert Documents Using JSON_OBJECT
+### Step 1: Insert Documents
 
 1. Insert a product document:
+
+   if type="sql"
 
    ```sql
    INSERT INTO products (json_document)
@@ -154,7 +156,55 @@ Let's populate our collections with sample data representing an e-commerce produ
    );
    ```
 
+   /if
+
+   if type="soda"
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('products');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "PROD-001",
+           "name": "Wireless Bluetooth Headphones",
+           "category": "Electronics",
+           "brand": "AudioTech",
+           "price": 79.99,
+           "currency": "USD",
+           "in_stock": true,
+           "quantity": 45,
+           "tags": ["wireless", "bluetooth", "audio", "headphones"],
+           "specifications": {
+             "color": "Black",
+             "weight_oz": 8.5,
+             "battery_hours": 30,
+             "bluetooth_version": "5.0"
+           },
+           "rating": {
+             "average": 4.5,
+             "count": 127
+           }
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+     END IF;
+   END;
+   /
+   ```
+
+   /if
+
 2. Insert multiple products:
+
+   if type="sql"
 
    ```sql
    INSERT INTO products (json_document)
@@ -226,6 +276,111 @@ Let's populate our collections with sample data representing an e-commerce produ
    COMMIT;
    ```
 
+   /if
+
+   if type="soda"
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+     total_inserted NUMBER := 0;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('products');
+
+     -- Insert PROD-002
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "PROD-002",
+           "name": "Ergonomic Wireless Mouse",
+           "category": "Electronics",
+           "brand": "TechComfort",
+           "price": 34.99,
+           "currency": "USD",
+           "in_stock": true,
+           "quantity": 120,
+           "tags": ["wireless", "ergonomic", "mouse", "computer"],
+           "specifications": {
+             "color": "Silver",
+             "dpi": 1600,
+             "buttons": 6,
+             "battery_months": 18
+           },
+           "rating": {
+             "average": 4.7,
+             "count": 342
+           }
+         }')
+       )
+     );
+     total_inserted := total_inserted + status;
+
+     -- Insert PROD-003
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "PROD-003",
+           "name": "Mechanical Gaming Keyboard",
+           "category": "Electronics",
+           "brand": "GamePro",
+           "price": 129.99,
+           "currency": "USD",
+           "in_stock": true,
+           "quantity": 67,
+           "tags": ["mechanical", "gaming", "keyboard", "rgb"],
+           "specifications": {
+             "switch_type": "Cherry MX Red",
+             "rgb_lighting": true,
+             "keys": 104,
+             "wired": true
+           },
+           "rating": {
+             "average": 4.8,
+             "count": 891
+           }
+         }')
+       )
+     );
+     total_inserted := total_inserted + status;
+
+     -- Insert PROD-004
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "PROD-004",
+           "name": "27-inch 4K Monitor",
+           "category": "Electronics",
+           "brand": "ViewPerfect",
+           "price": 449.99,
+           "currency": "USD",
+           "in_stock": false,
+           "quantity": 0,
+           "tags": ["monitor", "4k", "display", "gaming"],
+           "specifications": {
+             "screen_size": "27 inch",
+             "resolution": "3840x2160",
+             "refresh_rate": 144,
+             "panel_type": "IPS"
+           },
+           "rating": {
+             "average": 4.6,
+             "count": 234
+           }
+         }')
+       )
+     );
+     total_inserted := total_inserted + status;
+
+     DBMS_OUTPUT.PUT_LINE(total_inserted || ' rows created.');
+     DBMS_OUTPUT.PUT_LINE('');
+     DBMS_OUTPUT.PUT_LINE('Commit complete.');
+   END;
+   /
+   ```
+
+   /if
+
 3. Verify the products were inserted:
 
    ```sql
@@ -239,6 +394,8 @@ Let's populate our collections with sample data representing an e-commerce produ
 You can also insert JSON documents as raw JSON strings:
 
 1. Insert a customer document:
+
+   if type="sql"
 
    ```sql
    INSERT INTO customers (json_document)
@@ -265,7 +422,55 @@ You can also insert JSON documents as raw JSON strings:
    COMMIT;
    ```
 
+   /if
+
+   if type="soda"
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('customers');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "CUST-001",
+           "name": "Alice Johnson",
+           "email": "alice.johnson@email.com",
+           "phone": "+1-555-0123",
+           "address": {
+             "street": "123 Main Street",
+             "city": "San Francisco",
+             "state": "CA",
+             "zip": "94105",
+             "country": "USA"
+           },
+           "preferences": {
+             "newsletter": true,
+             "notifications": "email"
+           },
+           "loyalty_points": 1250,
+           "member_since": "2023-03-15"
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE('Commit complete.');
+     END IF;
+   END;
+   /
+   ```
+
+   /if
+
 2. Insert another customer:
+
+   if type="sql"
 
    ```sql
    INSERT INTO customers (json_document) VALUES (
@@ -274,6 +479,34 @@ You can also insert JSON documents as raw JSON strings:
 
    COMMIT;
    ```
+
+   /if
+
+   if type="soda"
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('customers');
+
+     status := collection.insert_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{"_id": "CUST-002", "name": "Bob Martinez", "email": "bob.m@email.com", "phone": "+1-555-0124", "address": {"street": "456 Oak Avenue", "city": "Austin", "state": "TX", "zip": "78701", "country": "USA"}, "preferences": {"newsletter": false, "notifications": "sms"}, "loyalty_points": 890, "member_since": "2023-06-22"}')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row created.');
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE('Commit complete.');
+     END IF;
+   END;
+   /
+   ```
+
+   /if
 
 ## Task 3: Query JSON Documents
 
@@ -446,6 +679,8 @@ Oracle provides multiple ways to update JSON documents.
 
 1. Replace an entire document:
 
+   if type="sql"
+
    ```sql
    UPDATE products
    SET json_document = JSON_OBJECT(
@@ -474,6 +709,56 @@ Oracle provides multiple ways to update JSON documents.
    COMMIT;
    ```
 
+   /if
+
+   if type="soda"
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     doc SODA_DOCUMENT_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('products');
+
+     -- Find and replace by key using QBE
+     status := collection.find().key('PROD-004').replace_one(
+       SODA_DOCUMENT_T(
+         b_content => UTL_RAW.cast_to_raw('{
+           "_id": "PROD-004",
+           "name": "27-inch 4K Monitor",
+           "category": "Electronics",
+           "brand": "ViewPerfect",
+           "price": 449.99,
+           "currency": "USD",
+           "in_stock": true,
+           "quantity": 15,
+           "tags": ["monitor", "4k", "display", "gaming"],
+           "specifications": {
+             "screen_size": "27 inch",
+             "resolution": "3840x2160",
+             "refresh_rate": 144,
+             "panel_type": "IPS"
+           },
+           "rating": {
+             "average": 4.6,
+             "count": 234
+           }
+         }')
+       )
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row updated.');
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE('Commit complete.');
+     END IF;
+   END;
+   /
+   ```
+
+   /if
+
 2. Verify the update:
 
    ```sql
@@ -491,6 +776,8 @@ Oracle provides multiple ways to update JSON documents.
 
 1. Update product price and quantity:
 
+   if type="sql"
+
    ```sql
    UPDATE products
    SET json_document = JSON_MERGEPATCH(
@@ -501,6 +788,47 @@ Oracle provides multiple ways to update JSON documents.
 
    COMMIT;
    ```
+
+   /if
+
+   if type="soda"
+
+   > **Note:** SODA doesn't have a direct equivalent to JSON_MERGEPATCH. You need to fetch the document, merge the changes, and replace it.
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     doc SODA_DOCUMENT_T;
+     doc_content CLOB;
+     merged_content CLOB;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('products');
+
+     -- Get the existing document
+     doc := collection.find().key('PROD-001').get_one();
+     doc_content := doc.get_clob();
+
+     -- Merge the patch (using JSON_MERGEPATCH in SQL)
+     SELECT JSON_MERGEPATCH(doc_content, '{"price": 69.99, "quantity": 38}')
+     INTO merged_content
+     FROM DUAL;
+
+     -- Replace with merged document
+     status := collection.find().key('PROD-001').replace_one(
+       SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
+     );
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE('1 row updated.');
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE('Commit complete.');
+     END IF;
+   END;
+   /
+   ```
+
+   /if
 
 2. Verify the update:
 

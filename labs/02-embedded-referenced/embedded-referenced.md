@@ -293,6 +293,206 @@ if type="soda"
 
 /if
 
+   **MongoDB API Approach:**
+
+if type="mongodb"
+
+   ```javascript
+   <copy>
+   // Connect to Oracle using MongoDB API
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+   use mydb
+
+   // Insert embedded order document
+   db.orders_embedded.insertOne({
+     _id: "ORD-EMB-001",
+     order_date: "2024-11-15T10:30:00",
+     status: "shipped",
+     customer_id: "CUST-456",
+     customer: {
+       name: "Alice Johnson",
+       email: "alice@email.com",
+       phone: "+1-555-0123"
+     },
+     shipping_address: {
+       street: "123 Main Street",
+       city: "San Francisco",
+       state: "CA",
+       zip: "94105"
+     },
+     items: [
+       {
+         product_id: "PROD-001",
+         product_name: "Wireless Bluetooth Headphones",
+         price: 79.99,
+         quantity: 1,
+         subtotal: 79.99
+       },
+       {
+         product_id: "PROD-002",
+         product_name: "Ergonomic Wireless Mouse",
+         price: 34.99,
+         quantity: 2,
+         subtotal: 69.98
+       }
+     ],
+     subtotal: 149.97,
+     tax: 12.00,
+     shipping: 7.99,
+     total: 169.96
+   })
+   </copy>
+   ```
+
+   Expected output:
+   ```javascript
+   {
+     acknowledged: true,
+     insertedId: 'ORD-EMB-001'
+   }
+   ```
+
+   > **MongoDB API**: Embedded pattern is natural in MongoDB - nested documents and arrays are first-class citizens. This is identical to native MongoDB syntax.
+
+/if
+
+   **REST API Approach:**
+
+if type="rest"
+
+   ```bash
+   <copy>
+   # Insert embedded order via ORDS SODA REST API
+   curl -X POST \
+     "http://localhost:8080/ords/jsonuser/soda/latest/orders_embedded" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "_id": "ORD-EMB-001",
+       "order_date": "2024-11-15T10:30:00",
+       "status": "shipped",
+       "customer_id": "CUST-456",
+       "customer": {
+         "name": "Alice Johnson",
+         "email": "alice@email.com",
+         "phone": "+1-555-0123"
+       },
+       "shipping_address": {
+         "street": "123 Main Street",
+         "city": "San Francisco",
+         "state": "CA",
+         "zip": "94105"
+       },
+       "items": [
+         {
+           "product_id": "PROD-001",
+           "product_name": "Wireless Bluetooth Headphones",
+           "price": 79.99,
+           "quantity": 1,
+           "subtotal": 79.99
+         },
+         {
+           "product_id": "PROD-002",
+           "product_name": "Ergonomic Wireless Mouse",
+           "price": 34.99,
+           "quantity": 2,
+           "subtotal": 69.98
+         }
+       ],
+       "subtotal": 149.97,
+       "tax": 12.00,
+       "shipping": 7.99,
+       "total": 169.96
+     }'
+   </copy>
+   ```
+
+   Expected output:
+   ```json
+   {
+     "id": "...",
+     "etag": "...",
+     "lastModified": "2024-11-15T10:30:00.000Z"
+   }
+   ```
+
+   > **REST API**: Perfect for microservices and web applications. The nested JSON structure is sent directly in the HTTP request body.
+
+/if
+
+   **Python Approach:**
+
+if type="python"
+
+   ```python
+   <copy>
+   import oracledb
+
+   connection = oracledb.connect(
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost/FREEPDB1"
+   )
+
+   soda = connection.getSodaDatabase()
+   collection = soda.openCollection("orders_embedded")
+
+   # Embedded order with nested customer and items
+   embedded_order = {
+       "_id": "ORD-EMB-001",
+       "order_date": "2024-11-15T10:30:00",
+       "status": "shipped",
+       "customer_id": "CUST-456",
+       "customer": {
+           "name": "Alice Johnson",
+           "email": "alice@email.com",
+           "phone": "+1-555-0123"
+       },
+       "shipping_address": {
+           "street": "123 Main Street",
+           "city": "San Francisco",
+           "state": "CA",
+           "zip": "94105"
+       },
+       "items": [
+           {
+               "product_id": "PROD-001",
+               "product_name": "Wireless Bluetooth Headphones",
+               "price": 79.99,
+               "quantity": 1,
+               "subtotal": 79.99
+           },
+           {
+               "product_id": "PROD-002",
+               "product_name": "Ergonomic Wireless Mouse",
+               "price": 34.99,
+               "quantity": 2,
+               "subtotal": 69.98
+           }
+       ],
+       "subtotal": 149.97,
+       "tax": 12.00,
+       "shipping": 7.99,
+       "total": 169.96
+   }
+
+   doc = collection.insertOne(embedded_order)
+   print("1 row created.")
+   connection.commit()
+
+   connection.close()
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+   > **Python**: Using Python dictionaries and lists makes embedded patterns very natural. Perfect for data science and analytics workflows.
+
+/if
+
 2. Insert more embedded orders:
 
    ```sql
@@ -834,6 +1034,190 @@ if type="soda"
      ON JSON_VALUE(o.json_document, '$._id') = JSON_VALUE(i.json_document, '$.order_id')
    WHERE JSON_VALUE(o.json_document, '$._id') = 'ORD-REF-001';
    ```
+
+5. MongoDB aggregation with $lookup (join-like query):
+
+   if type="mongodb"
+
+   ```javascript
+   <copy>
+   // Connect to Oracle using MongoDB API
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+   use mydb
+
+   // MongoDB aggregation with $lookup - Oracle supports this!
+   db.orders_referenced.aggregate([
+     {
+       $match: { _id: "ORD-REF-001" }
+     },
+     {
+       $lookup: {
+         from: "customers_referenced",
+         localField: "customer_id",
+         foreignField: "_id",
+         as: "customer_info"
+       }
+     },
+     {
+       $lookup: {
+         from: "order_items_referenced",
+         localField: "_id",
+         foreignField: "order_id",
+         as: "items"
+       }
+     },
+     {
+       $project: {
+         _id: 1,
+         order_date: 1,
+         status: 1,
+         customer: { $arrayElemAt: ["$customer_info", 0] },
+         items: 1,
+         total: 1
+       }
+     }
+   ])
+   </copy>
+   ```
+
+   Expected output:
+   ```javascript
+   [
+     {
+       _id: 'ORD-REF-001',
+       order_date: '2024-11-15T10:30:00',
+       status: 'shipped',
+       customer: {
+         _id: 'CUST-456',
+         name: 'Alice Johnson',
+         email: 'alice@email.com',
+         phone: '+1-555-0123'
+       },
+       items: [
+         {
+           _id: 'ITEM-001',
+           order_id: 'ORD-REF-001',
+           product_id: 'PROD-001',
+           product_name: 'Wireless Bluetooth Headphones',
+           price: 79.99,
+           quantity: 1,
+           subtotal: 79.99
+         },
+         {
+           _id: 'ITEM-002',
+           order_id: 'ORD-REF-001',
+           product_id: 'PROD-002',
+           product_name: 'Ergonomic Wireless Mouse',
+           price: 34.99,
+           quantity: 2,
+           subtotal: 69.98
+         }
+       ],
+       total: 169.96
+     }
+   ]
+   ```
+
+   > **MongoDB API**: Oracle supports MongoDB's `$lookup` aggregation operator! This performs server-side joins, but is still slower than embedded pattern.
+
+   /if
+
+6. REST API pattern (multiple requests required):
+
+   if type="rest"
+
+   ```bash
+   <copy>
+   # REST API requires multiple HTTP requests for referenced pattern
+
+   # Request 1: Get order header
+   curl -X GET \
+     "http://localhost:8080/ords/jsonuser/soda/latest/orders_referenced?q={\"_id\":\"ORD-REF-001\"}" \
+     -H "Content-Type: application/json"
+
+   # Request 2: Get customer
+   curl -X GET \
+     "http://localhost:8080/ords/jsonuser/soda/latest/customers_referenced?q={\"_id\":\"CUST-456\"}" \
+     -H "Content-Type: application/json"
+
+   # Request 3: Get order items
+   curl -X GET \
+     "http://localhost:8080/ords/jsonuser/soda/latest/order_items_referenced?q={\"order_id\":\"ORD-REF-001\"}" \
+     -H "Content-Type: application/json"
+   </copy>
+   ```
+
+   Expected: 3 separate HTTP responses that must be assembled client-side
+
+   > **REST API**: Referenced pattern requires multiple HTTP round trips, adding network latency. Embedded pattern is far more efficient for REST APIs.
+
+   /if
+
+7. Python pattern (multiple find() calls):
+
+   if type="python"
+
+   ```python
+   <copy>
+   import oracledb
+
+   connection = oracledb.connect(
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost/FREEPDB1"
+   )
+
+   soda = connection.getSodaDatabase()
+
+   # Referenced pattern requires 3 collection queries
+   orders_coll = soda.openCollection("orders_referenced")
+   customers_coll = soda.openCollection("customers_referenced")
+   items_coll = soda.openCollection("order_items_referenced")
+
+   # Query 1: Get order
+   order_doc = orders_coll.find().filter({"_id": "ORD-REF-001"}).getOne()
+   order = order_doc.getContent()
+
+   # Query 2: Get customer
+   customer_doc = customers_coll.find().filter({"_id": order["customer_id"]}).getOne()
+   customer = customer_doc.getContent()
+
+   # Query 3: Get order items
+   items_docs = items_coll.find().filter({"order_id": "ORD-REF-001"}).getDocuments()
+   items = [doc.getContent() for doc in items_docs]
+
+   # Assemble the complete order (application-side join)
+   complete_order = {
+       **order,
+       "customer": customer,
+       "items": items
+   }
+
+   print("Complete order assembled from 3 queries:")
+   print(f"Order: {complete_order['_id']}")
+   print(f"Customer: {complete_order['customer']['name']}")
+   print(f"Items: {len(complete_order['items'])}")
+
+   connection.close()
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   Complete order assembled from 3 queries:
+   Order: ORD-REF-001
+   Customer: Alice Johnson
+   Items: 2
+   ```
+
+   > **Python**: Application must execute 3 separate find() operations and assemble the result. Compare this to embedded pattern which needs only 1 find().
+
+   /if
+
+   **Key Insight:**
+
+   > The referenced pattern requires **3 queries** (or complex joins) to retrieve what embedded pattern returns in **1 query**. This is the fundamental trade-off between normalization and denormalization.
 
 ## Task 4: Performance Comparison
 

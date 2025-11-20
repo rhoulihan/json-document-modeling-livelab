@@ -1661,8 +1661,13 @@ In enterprise environments, shared assets like documents, images, templates, and
    **Expected Output:**
    ```
    1 row created.
+
    1 row created.
+
    1 row created.
+
+
+   Commit complete.
    ```
 
 ### Step 3: Query Artifacts by Project Path (Exact Match)
@@ -1681,9 +1686,9 @@ In enterprise environments, shared assets like documents, images, templates, and
 
    **Expected Output:**
    ```
-   ARTIFACT_NAME                    TYPE        VERSION  LAST_MODIFIED
-   -------------------------------- ----------- -------- --------------------
-   Corporate Header Template        template    2.1      2024-11-18T14:30:00Z
+   ARTIFACT_NAME                       TYPE            VERSION  LAST_MODIFIED
+   ----------------------------------- --------------- -------- -------------------------
+   Corporate Header Template           template        2.1      2024-11-18T14:30:00Z
    ```
 
 ### Step 4: Hierarchical Queries - Find All Artifacts at or Below a Path
@@ -1695,28 +1700,18 @@ In enterprise environments, shared assets like documents, images, templates, and
    ```sql
    SELECT
      JSON_VALUE(json_document, '$.name') AS artifact_name,
-     JSON_VALUE(json_document, '$.artifactType') AS type,
-     JSON_QUERY(json_document, '$.projectPaths' RETURNING VARCHAR2(1000) PRETTY) AS project_paths
+     JSON_VALUE(json_document, '$.artifactType') AS type
    FROM enterprise_artifacts
    WHERE JSON_EXISTS(json_document, '$.projectPaths[*]?(@ starts with "/acme/website")');
    ```
 
    **Expected Output:**
    ```
-   ARTIFACT_NAME                    TYPE             PROJECT_PATHS
-   -------------------------------- ---------------- ---------------------------------
-   Corporate Header Template        template         [
-                                                       "/acme/website/frontend/templates",
-                                                       ...
-                                                     ]
-   Privacy Policy - GDPR Compliant  legal-document   [
-                                                       "/acme/website/legal/policies",
-                                                       ...
-                                                     ]
-   ACME Primary Logo                image            [
-                                                       "/acme/website/assets/images",
-                                                       ...
-                                                     ]
+   ARTIFACT_NAME                       TYPE
+   ----------------------------------- ---------------
+   Corporate Header Template           template
+   Privacy Policy - GDPR Compliant     legal-document
+   ACME Primary Logo                   image
    ```
 
 2. Find all artifacts used in ALL marketing projects:
@@ -1725,8 +1720,7 @@ In enterprise environments, shared assets like documents, images, templates, and
    SELECT
      JSON_VALUE(json_document, '$.name') AS artifact_name,
      JSON_VALUE(json_document, '$.artifactType') AS type,
-     JSON_VALUE(json_document, '$.version') AS version,
-     COUNT(*) OVER (PARTITION BY JSON_VALUE(json_document, '$._id')) as path_count
+     JSON_VALUE(json_document, '$.version') AS version
    FROM enterprise_artifacts
    WHERE JSON_EXISTS(json_document, '$.projectPaths[*]?(@ starts with "/marketing")')
    ORDER BY artifact_name;
@@ -1734,10 +1728,10 @@ In enterprise environments, shared assets like documents, images, templates, and
 
    **Expected Output:**
    ```
-   ARTIFACT_NAME                    TYPE        VERSION  PATH_COUNT
-   -------------------------------- ----------- -------- ----------
-   ACME Primary Logo                image       1.5      2
-   Corporate Header Template        template    2.1      1
+   ARTIFACT_NAME                       TYPE            VERSION
+   ----------------------------------- --------------- --------
+   ACME Primary Logo                   image           1.5
+   Corporate Header Template           template        2.1
    ```
 
 ### Step 5: Update Artifact - Immediate Reflection Everywhere
@@ -1759,6 +1753,14 @@ In enterprise environments, shared assets like documents, images, templates, and
    COMMIT;
    ```
 
+   **Expected Output:**
+   ```
+   1 row updated.
+
+
+   Commit complete.
+   ```
+
 2. Verify update is reflected across ALL project paths:
 
    ```sql
@@ -1766,20 +1768,16 @@ In enterprise environments, shared assets like documents, images, templates, and
      JSON_VALUE(json_document, '$.name') AS artifact_name,
      JSON_VALUE(json_document, '$.version') AS version,
      JSON_VALUE(json_document, '$.lastModified') AS last_modified,
-     JSON_VALUE(json_document, '$.projectPaths' RETURNING VARCHAR2(2000)) AS paths
+     JSON_VALUE(json_document, '$.modifiedBy') AS modified_by
    FROM enterprise_artifacts
    WHERE JSON_VALUE(json_document, '$._id') = 'ARTIFACT#TMPL-header-001';
    ```
 
    **Expected Output:**
    ```
-   ARTIFACT_NAME                    VERSION  LAST_MODIFIED          PATHS
-   -------------------------------- -------- ---------------------- --------------------------------------
-   Corporate Header Template        2.2      2024-11-19T10:00:00Z   ["/acme/website/frontend/templates",
-                                                                      "/acme/mobile-app/ui/headers",
-                                                                      "/acme/partner-portal/layouts",
-                                                                      "/internal/design-system/components",
-                                                                      "/marketing/email-templates/headers"]
+   ARTIFACT_NAME                       VERSION  LAST_MODIFIED             MODIFIED_BY
+   ----------------------------------- -------- ------------------------- --------------------
+   Corporate Header Template           2.2      2024-11-19T10:00:00Z      USER#bob-developer
    ```
 
    **Result:** ✅ One update, instantly visible in all 5 projects. No write amplification, no stale data!
@@ -1811,14 +1809,29 @@ In enterprise environments, shared assets like documents, images, templates, and
 
    **Expected Output:**
    ```
-   ARTIFACT_NAME          PROJECT_PATHS
-   ---------------------- --------------------------------------------
-   ACME Primary Logo      [
-                            "/acme/website/assets/images",
-                            "/acme/mobile-app/assets/logos",
-                            ...
-                            "/acme/investor-relations/assets"
-                          ]
+   1 row updated.
+
+
+   Commit complete.
+   ```
+
+   Verify the path was added:
+
+   ```sql
+   SELECT
+     JSON_VALUE(json_document, '$.name') AS artifact_name,
+     (SELECT COUNT(*)
+      FROM JSON_TABLE(json_document, '$.projectPaths[*]' COLUMNS (path VARCHAR2(500) PATH '$'))
+     ) AS project_count
+   FROM enterprise_artifacts
+   WHERE JSON_VALUE(json_document, '$._id') = 'ARTIFACT#IMG-logo-primary';
+   ```
+
+   **Expected Output:**
+   ```
+   ARTIFACT_NAME          PROJECT_COUNT
+   ---------------------- -------------
+   ACME Primary Logo      8
    ```
 
 ### Step 7: Aggregate Queries - Project Asset Reports
@@ -1845,13 +1858,12 @@ In enterprise environments, shared assets like documents, images, templates, and
    image              1              12800
    ```
 
-2. Find artifacts used in the most projects:
+2. Find artifacts used in the most projects (most-used assets):
 
    ```sql
    SELECT
      JSON_VALUE(json_document, '$.name') AS artifact_name,
      JSON_VALUE(json_document, '$.artifactType') AS type,
-     JSON_VALUE(json_document, '$.projectPaths' RETURNING VARCHAR2(4000) FORMAT JSON) AS paths,
      (SELECT COUNT(*)
       FROM JSON_TABLE(json_document, '$.projectPaths[*]' COLUMNS (path VARCHAR2(500) PATH '$'))
      ) AS project_count
@@ -1861,11 +1873,11 @@ In enterprise environments, shared assets like documents, images, templates, and
 
    **Expected Output:**
    ```
-   ARTIFACT_NAME          TYPE        PROJECT_COUNT
-   ---------------------- ----------- -------------
-   ACME Primary Logo      image       8
-   Corporate Header...    template    5
-   Privacy Policy...      legal-doc   4
+   ARTIFACT_NAME                       TYPE            PROJECT_COUNT
+   ----------------------------------- --------------- -------------
+   ACME Primary Logo                   image                       8
+   Corporate Header Template           template                    5
+   Privacy Policy - GDPR Compliant     legal-document              4
    ```
 
 ### Key Benefits of This Pattern

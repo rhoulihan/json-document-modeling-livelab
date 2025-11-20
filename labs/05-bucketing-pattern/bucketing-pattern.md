@@ -228,6 +228,178 @@ END;
 
 /if
 
+**MongoDB API Approach:**
+
+if type="mongodb"
+
+```javascript
+<copy>
+// Connect to Oracle using MongoDB API
+// mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+use mydb
+
+// Insert sensor metadata
+db.sensor_data.insertOne({
+  _id: "SENSOR#temp001",
+  type: "sensor",
+  sensor_id: "temp001",
+  name: "Warehouse Temperature Sensor",
+  location: "Warehouse A - Zone 3",
+  unit: "celsius",
+  config: {
+    sample_rate_seconds: 1,
+    alert_threshold_min: 18,
+    alert_threshold_max: 26
+  },
+  installed_date: "2024-01-15"
+})
+
+// Insert hourly bucket for time-series data
+// Bucket holds up to 3,600 readings (1 per second for 1 hour)
+db.sensor_data.insertOne({
+  _id: "SENSOR#temp001#BUCKET#2024-11-18-14",
+  type: "sensor_bucket",
+  sensor_id: "temp001",
+  bucket_start: "2024-11-18T14:00:00Z",
+  bucket_end: "2024-11-18T14:59:59Z",
+  reading_count: 0,
+  readings: [],
+  summary: {
+    min: null,
+    max: null,
+    avg: null,
+    computed: false
+  }
+})
+
+// Add readings to bucket using $push operator
+db.sensor_data.updateOne(
+  { _id: "SENSOR#temp001#BUCKET#2024-11-18-14" },
+  {
+    $push: {
+      readings: {
+        timestamp: "2024-11-18T14:00:01Z",
+        value: 23.5
+      }
+    },
+    $inc: { reading_count: 1 }
+  }
+)
+</copy>
+```
+
+Expected output:
+```javascript
+{
+  acknowledged: true,
+  insertedId: 'SENSOR#temp001'
+}
+{
+  acknowledged: true,
+  insertedId: 'SENSOR#temp001#BUCKET#2024-11-18-14'
+}
+{
+  acknowledged: true,
+  matchedCount: 1,
+  modifiedCount: 1
+}
+```
+
+> **MongoDB API**: Bucketing is a standard MongoDB time-series pattern. Use `$push` to append readings to arrays and `$inc` to increment counters atomically. This is perfect for IoT and time-series workloads.
+
+/if
+
+**Python Approach:**
+
+if type="python"
+
+```python
+<copy>
+import oracledb
+from datetime import datetime, timedelta
+
+connection = oracledb.connect(
+    user="jsonuser",
+    password="WelcomeJson#123",
+    dsn="localhost/FREEPDB1"
+)
+
+soda = connection.getSodaDatabase()
+collection = soda.openCollection("sensor_data")
+
+# Insert sensor metadata
+sensor_metadata = {
+    "_id": "SENSOR#temp001",
+    "type": "sensor",
+    "sensor_id": "temp001",
+    "name": "Warehouse Temperature Sensor",
+    "location": "Warehouse A - Zone 3",
+    "unit": "celsius",
+    "config": {
+        "sample_rate_seconds": 1,
+        "alert_threshold_min": 18,
+        "alert_threshold_max": 26
+    },
+    "installed_date": "2024-01-15"
+}
+
+collection.insertOne(sensor_metadata)
+print("Sensor metadata created.")
+
+# Helper function to get bucket ID from timestamp
+def get_bucket_id(sensor_id, timestamp):
+    """Generate bucket ID from timestamp (hourly buckets)"""
+    bucket_hour = timestamp.strftime("%Y-%m-%d-%H")
+    return f"SENSOR#{sensor_id}#BUCKET#{bucket_hour}"
+
+# Insert time-series bucket
+timestamp = datetime(2024, 11, 18, 14, 0, 0)
+bucket_id = get_bucket_id("temp001", timestamp)
+
+bucket = {
+    "_id": bucket_id,
+    "type": "sensor_bucket",
+    "sensor_id": "temp001",
+    "bucket_start": timestamp.isoformat() + "Z",
+    "bucket_end": (timestamp + timedelta(hours=1) - timedelta(seconds=1)).isoformat() + "Z",
+    "reading_count": 0,
+    "readings": [],
+    "summary": {
+        "min": None,
+        "max": None,
+        "avg": None,
+        "computed": False
+    }
+}
+
+collection.insertOne(bucket)
+print(f"Bucket created: {bucket_id}")
+
+# Example: Add reading to bucket (in production, use batch updates)
+# Note: This requires fetching, modifying, and replacing the document
+# For high-volume appends, consider using SQL JSON_TRANSFORM instead
+
+connection.commit()
+connection.close()
+</copy>
+```
+
+Expected output:
+```
+Sensor metadata created.
+Bucket created: SENSOR#temp001#BUCKET#2024-11-18-14
+```
+
+> **Python**: Python is ideal for data pipeline processing. Calculate bucket IDs in Python, batch readings, then insert. For high-frequency appends, use SQL's JSON_TRANSFORM for atomic array updates.
+
+**Key Bucketing Strategy:**
+- Hourly buckets for 1 reading/second = 3,600 readings/bucket (~75KB)
+- Keep buckets under 500KB to avoid LOB performance penalties
+- Use composite keys for efficient time-range queries
+
+/if
+
 -- Query sensor with recent buckets
 SELECT JSON_QUERY(json_document, '$' PRETTY)
 FROM sensor_data

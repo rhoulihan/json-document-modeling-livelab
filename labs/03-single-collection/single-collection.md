@@ -262,6 +262,128 @@ if type="soda"
 
 /if
 
+   **MongoDB API Approach:**
+
+if type="mongodb"
+
+   ```javascript
+   <copy>
+   // Connect to Oracle using MongoDB API
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+   use mydb
+
+   // Insert customer with composite key
+   db.ecommerce_single.insertOne({
+     _id: "CUSTOMER#CUST-456",
+     type: "customer",
+     name: "Alice Johnson",
+     email: "alice@email.com",
+     phone: "+1-555-0123",
+     created: "2024-01-15T10:00:00Z",
+     loyalty_tier: "gold",
+     total_orders: 127,
+     lifetime_value: 12450.00
+   })
+   </copy>
+   ```
+
+   Expected output:
+   ```javascript
+   {
+     acknowledged: true,
+     insertedId: 'CUSTOMER#CUST-456'
+   }
+   ```
+
+   > **MongoDB API**: Composite keys work identically in MongoDB. The delimiter pattern (`#`) is a standard NoSQL practice.
+
+/if
+
+   **REST API Approach:**
+
+if type="rest"
+
+   ```bash
+   <copy>
+   # Insert customer with composite key via REST
+   curl -X POST \
+     "http://localhost:8080/ords/jsonuser/soda/latest/ecommerce_single" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "_id": "CUSTOMER#CUST-456",
+       "type": "customer",
+       "name": "Alice Johnson",
+       "email": "alice@email.com",
+       "phone": "+1-555-0123",
+       "created": "2024-01-15T10:00:00Z",
+       "loyalty_tier": "gold",
+       "total_orders": 127,
+       "lifetime_value": 12450.00
+     }'
+   </copy>
+   ```
+
+   Expected output:
+   ```json
+   {
+     "id": "...",
+     "etag": "...",
+     "lastModified": "2024-01-15T10:00:00.000Z"
+   }
+   ```
+
+   > **REST API**: Composite keys in the `_id` field are just strings - works seamlessly with REST.
+
+/if
+
+   **Python Approach:**
+
+if type="python"
+
+   ```python
+   <copy>
+   import oracledb
+
+   connection = oracledb.connect(
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost/FREEPDB1"
+   )
+
+   soda = connection.getSodaDatabase()
+   collection = soda.openCollection("ecommerce_single")
+
+   # Insert customer with composite key
+   customer = {
+       "_id": "CUSTOMER#CUST-456",
+       "type": "customer",
+       "name": "Alice Johnson",
+       "email": "alice@email.com",
+       "phone": "+1-555-0123",
+       "created": "2024-01-15T10:00:00Z",
+       "loyalty_tier": "gold",
+       "total_orders": 127,
+       "lifetime_value": 12450.00
+   }
+
+   doc = collection.insertOne(customer)
+   print("1 row created.")
+   connection.commit()
+
+   connection.close()
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+   > **Python**: Composite keys are just string values in Python dictionaries - natural and simple.
+
+/if
+
 4. Insert order entity (same collection):
 
    **SQL Approach:**
@@ -374,6 +496,177 @@ if type="soda"
 
 /if
 
+   **MongoDB API Approach:**
+
+if type="mongodb"
+
+   ```javascript
+   <copy>
+   // Insert order with hierarchical composite key
+   db.ecommerce_single.insertOne({
+     _id: "CUSTOMER#CUST-456#ORDER#ORD-001",
+     type: "order",
+     customer_id: "CUST-456",
+     customer_name: "Alice Johnson",      // Denormalized
+     customer_email: "alice@email.com",   // Denormalized
+     order_date: "2024-11-15T10:30:00Z",
+     status: "shipped",
+     items: [
+       {
+         product_id: "PROD-789",
+         name: "Wireless Headphones",
+         price: 79.99,
+         quantity: 1,
+         subtotal: 79.99
+       },
+       {
+         product_id: "PROD-234",
+         name: "USB-C Cable",
+         price: 12.99,
+         quantity: 2,
+         subtotal: 25.98
+       }
+     ],
+     subtotal: 105.97,
+     tax: 8.48,
+     shipping: 0.00,
+     total: 114.45
+   })
+   </copy>
+   ```
+
+   Expected output:
+   ```javascript
+   {
+     acknowledged: true,
+     insertedId: 'CUSTOMER#CUST-456#ORDER#ORD-001'
+   }
+   ```
+
+   > **MongoDB API**: Hierarchical composite key (`CUSTOMER#...#ORDER#...`) enables efficient prefix queries to find all orders for a customer.
+
+/if
+
+   **REST API Approach:**
+
+if type="rest"
+
+   ```bash
+   <copy>
+   # Insert order with composite key
+   curl -X POST \
+     "http://localhost:8080/ords/jsonuser/soda/latest/ecommerce_single" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "_id": "CUSTOMER#CUST-456#ORDER#ORD-001",
+       "type": "order",
+       "customer_id": "CUST-456",
+       "customer_name": "Alice Johnson",
+       "customer_email": "alice@email.com",
+       "order_date": "2024-11-15T10:30:00Z",
+       "status": "shipped",
+       "items": [
+         {
+           "product_id": "PROD-789",
+           "name": "Wireless Headphones",
+           "price": 79.99,
+           "quantity": 1,
+           "subtotal": 79.99
+         },
+         {
+           "product_id": "PROD-234",
+           "name": "USB-C Cable",
+           "price": 12.99,
+           "quantity": 2,
+           "subtotal": 25.98
+         }
+       ],
+       "subtotal": 105.97,
+       "tax": 8.48,
+       "shipping": 0.00,
+       "total": 114.45
+     }'
+   </copy>
+   ```
+
+   Expected output:
+   ```json
+   {
+     "id": "...",
+     "etag": "...",
+     "lastModified": "2024-11-15T10:30:00.000Z"
+   }
+   ```
+
+   > **REST API**: Notice how we store both customer and order in the same collection - this is the single collection pattern.
+
+/if
+
+   **Python Approach:**
+
+if type="python"
+
+   ```python
+   <copy>
+   import oracledb
+
+   connection = oracledb.connect(
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost/FREEPDB1"
+   )
+
+   soda = connection.getSodaDatabase()
+   collection = soda.openCollection("ecommerce_single")
+
+   # Insert order with hierarchical composite key and denormalized customer data
+   order = {
+       "_id": "CUSTOMER#CUST-456#ORDER#ORD-001",
+       "type": "order",
+       "customer_id": "CUST-456",
+       "customer_name": "Alice Johnson",      # Denormalized
+       "customer_email": "alice@email.com",   # Denormalized
+       "order_date": "2024-11-15T10:30:00Z",
+       "status": "shipped",
+       "items": [
+           {
+               "product_id": "PROD-789",
+               "name": "Wireless Headphones",
+               "price": 79.99,
+               "quantity": 1,
+               "subtotal": 79.99
+           },
+           {
+               "product_id": "PROD-234",
+               "name": "USB-C Cable",
+               "price": 12.99,
+               "quantity": 2,
+               "subtotal": 25.98
+           }
+       ],
+       "subtotal": 105.97,
+       "tax": 8.48,
+       "shipping": 0.00,
+       "total": 114.45
+   }
+
+   doc = collection.insertOne(order)
+   print("1 row created.")
+   connection.commit()
+
+   connection.close()
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   1 row created.
+   ```
+
+   > **Python**: Composite keys and denormalization work naturally in Python. Both customer and order entities live in one collection.
+
+/if
+
 5. Query by exact key:
 
    ```sql
@@ -391,8 +684,11 @@ if type="soda"
 
 6. Query by key prefix (get all orders for customer):
 
+   if type="sql"
+
    ```sql
-   -- Get all orders for a customer
+   <copy>
+   -- Get all orders for a customer using prefix match
    SELECT
      JSON_VALUE(json_document, '$._id') AS order_id,
      JSON_VALUE(json_document, '$.order_date') AS order_date,
@@ -400,14 +696,185 @@ if type="soda"
      JSON_VALUE(json_document, '$.status') AS status
    FROM ecommerce_single
    WHERE JSON_VALUE(json_document, '$._id') LIKE 'CUSTOMER#CUST-456#ORDER#%';
+   </copy>
    ```
 
-   **Expected output:**
+   Expected output:
    ```
    ORDER_ID                              ORDER_DATE             TOTAL  STATUS
    ------------------------------------- ---------------------- ------ --------
    CUSTOMER#CUST-456#ORDER#ORD-001       2024-11-15T10:30:00Z  114.45 shipped
    ```
+
+   /if
+
+   if type="soda"
+
+   ```sql
+   <copy>
+   DECLARE
+     collection SODA_COLLECTION_T;
+     cursor SODA_CURSOR_T;
+     doc SODA_DOCUMENT_T;
+     doc_content CLOB;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('ecommerce_single');
+
+     -- Query by prefix using regex filter
+     cursor := collection.find()
+       .filter('{"_id": {"$regex": "^CUSTOMER#CUST-456#ORDER#"}}')
+       .getCursor();
+
+     DBMS_OUTPUT.PUT_LINE('Orders for customer CUST-456:');
+     DBMS_OUTPUT.PUT_LINE('--------------------------------------');
+
+     LOOP
+       IF cursor.has_next() THEN
+         doc := cursor.next();
+         doc_content := doc.get_clob();
+
+         DBMS_OUTPUT.PUT_LINE('Order: ' ||
+           JSON_VALUE(doc_content, '$._id') || ', Total: $' ||
+           JSON_VALUE(doc_content, '$.total'));
+       ELSE
+         EXIT;
+       END IF;
+     END LOOP;
+
+     cursor.close();
+   END;
+   /
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   Orders for customer CUST-456:
+   --------------------------------------
+   Order: CUSTOMER#CUST-456#ORDER#ORD-001, Total: $114.45
+   ```
+
+   /if
+
+   if type="mongodb"
+
+   ```javascript
+   <copy>
+   // Query by key prefix using regex
+   db.ecommerce_single.find(
+     { _id: { $regex: /^CUSTOMER#CUST-456#ORDER#/ } },
+     { _id: 1, order_date: 1, total: 1, status: 1 }
+   )
+   </copy>
+   ```
+
+   Expected output:
+   ```javascript
+   [
+     {
+       _id: 'CUSTOMER#CUST-456#ORDER#ORD-001',
+       order_date: '2024-11-15T10:30:00Z',
+       total: 114.45,
+       status: 'shipped'
+     }
+   ]
+   ```
+
+   > **MongoDB API**: Use regex with `^` anchor for prefix matching. This is equivalent to SQL LIKE with trailing `%`.
+
+   /if
+
+   if type="rest"
+
+   ```bash
+   <copy>
+   # Query by prefix using regex pattern
+   curl -X POST \
+     "http://localhost:8080/ords/jsonuser/soda/latest/ecommerce_single?action=query" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "$query": {
+         "_id": { "$regex": "^CUSTOMER#CUST-456#ORDER#" }
+       },
+       "$fields": {
+         "_id": 1,
+         "order_date": 1,
+         "total": 1,
+         "status": 1
+       }
+     }'
+   </copy>
+   ```
+
+   Expected output:
+   ```json
+   {
+     "items": [
+       {
+         "_id": "CUSTOMER#CUST-456#ORDER#ORD-001",
+         "order_date": "2024-11-15T10:30:00Z",
+         "total": 114.45,
+         "status": "shipped"
+       }
+     ],
+     "hasMore": false,
+     "count": 1
+   }
+   ```
+
+   > **REST API**: Use `$regex` operator in QBE queries for pattern matching. Efficient for finding all related entities.
+
+   /if
+
+   if type="python"
+
+   ```python
+   <copy>
+   import oracledb
+   import re
+
+   connection = oracledb.connect(
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost/FREEPDB1"
+   )
+
+   soda = connection.getSodaDatabase()
+   collection = soda.openCollection("ecommerce_single")
+
+   # Query by prefix using regex filter
+   filter_spec = {
+       "_id": {"$regex": "^CUSTOMER#CUST-456#ORDER#"}
+   }
+
+   documents = collection.find().filter(filter_spec).getDocuments()
+
+   print("Orders for customer CUST-456:")
+   print("-" * 60)
+
+   for doc in documents:
+       content = doc.getContent()
+       print(f"Order: {content['_id']}, Total: ${content['total']}, Status: {content['status']}")
+
+   connection.close()
+   </copy>
+   ```
+
+   Expected output:
+   ```
+   Orders for customer CUST-456:
+   ------------------------------------------------------------
+   Order: CUSTOMER#CUST-456#ORDER#ORD-001, Total: $114.45, Status: shipped
+   ```
+
+   > **Python**: Regex filters work seamlessly. The `^` anchor matches the start of the string, enabling efficient prefix queries.
+
+   /if
+
+   **Key Benefit:** A single index on `_id` enables efficient queries for:
+   - Exact matches (`_id = "CUSTOMER#CUST-456"`)
+   - Prefix matches (`_id LIKE "CUSTOMER#CUST-456#ORDER#%"`)
+   - Range queries (all orders between dates)
 
 7. Get customer and all their orders (2 queries):
 

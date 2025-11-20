@@ -202,6 +202,156 @@ Let's populate our collections with sample data representing an e-commerce produ
 
    /if
 
+   **MongoDB API Approach:**
+
+   if type="mongodb"
+
+   ```javascript
+   // Connect to Oracle using MongoDB API (via ORDS)
+   // mongosh "mongodb://user:password@localhost:27017/mydb"
+
+   use mydb
+
+   // Insert document using MongoDB syntax
+   db.products.insertOne({
+     _id: "PROD-001",
+     name: "Wireless Bluetooth Headphones",
+     category: "Electronics",
+     brand: "AudioTech",
+     price: 79.99,
+     currency: "USD",
+     in_stock: true,
+     quantity: 45,
+     tags: ["wireless", "bluetooth", "audio", "headphones"],
+     specifications: {
+       color: "Black",
+       weight_oz: 8.5,
+       battery_hours: 30,
+       bluetooth_version: "5.0"
+     },
+     rating: {
+       average: 4.5,
+       count: 127
+     }
+   })
+   ```
+
+   Expected output:
+   ```json
+   {
+     "acknowledged": true,
+     "insertedId": "PROD-001"
+   }
+   ```
+
+   > **Note:** MongoDB API allows you to use familiar MongoDB syntax and tools (mongosh, MongoDB Compass) to work with Oracle Database.
+
+   /if
+
+   **REST API Approach:**
+
+   if type="rest"
+
+   ```bash
+   # Insert document via ORDS SODA REST API
+   curl -X POST \
+     http://localhost:8080/ords/mydb/_soda/latest/products \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "_id": "PROD-001",
+       "name": "Wireless Bluetooth Headphones",
+       "category": "Electronics",
+       "brand": "AudioTech",
+       "price": 79.99,
+       "currency": "USD",
+       "in_stock": true,
+       "quantity": 45,
+       "tags": ["wireless", "bluetooth", "audio", "headphones"],
+       "specifications": {
+         "color": "Black",
+         "weight_oz": 8.5,
+         "battery_hours": 30,
+         "bluetooth_version": "5.0"
+       },
+       "rating": {
+         "average": 4.5,
+         "count": 127
+       }
+     }'
+   ```
+
+   Expected output:
+   ```json
+   {
+     "id": "PROD-001",
+     "etag": "...",
+     "lastModified": "2024-11-20T12:30:45.123Z"
+   }
+   ```
+
+   > **Note:** REST API enables web and mobile applications to interact with JSON Collections over HTTP.
+
+   /if
+
+   **Python Approach:**
+
+   if type="python"
+
+   ```python
+   import oracledb
+
+   # Connect to Oracle Database
+   connection = oracledb.connect(
+       user="myuser",
+       password="mypass",
+       dsn="localhost/FREEPDB1"
+   )
+
+   # Get SODA database handle
+   soda = connection.getSodaDatabase()
+
+   # Create or open collection
+   collection = soda.createCollection("products")
+
+   # Insert document
+   doc = {
+       "_id": "PROD-001",
+       "name": "Wireless Bluetooth Headphones",
+       "category": "Electronics",
+       "brand": "AudioTech",
+       "price": 79.99,
+       "currency": "USD",
+       "in_stock": True,
+       "quantity": 45,
+       "tags": ["wireless", "bluetooth", "audio", "headphones"],
+       "specifications": {
+           "color": "Black",
+           "weight_oz": 8.5,
+           "battery_hours": 30,
+           "bluetooth_version": "5.0"
+       },
+       "rating": {
+           "average": 4.5,
+           "count": 127
+       }
+   }
+
+   inserted_doc = collection.insertOne(doc)
+   print(f"1 row created. Document key: {inserted_doc.key}")
+
+   connection.commit()
+   connection.close()
+   ```
+
+   Expected output:
+   ```
+   1 row created. Document key: PROD-001
+   ```
+
+   > **Note:** Python's python-oracledb driver provides native SODA support for data science and Python applications.
+
+   /if
+
 2. Insert multiple products:
 
    if type="sql"

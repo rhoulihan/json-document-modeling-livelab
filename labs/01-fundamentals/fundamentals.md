@@ -689,6 +689,8 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
 2. Filter products by category and availability:
 
+   if type="sql"
+
    ```sql
    SELECT
      JSON_VALUE(json_document, '$.name') AS product_name,
@@ -699,6 +701,234 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
      AND JSON_VALUE(json_document, '$.in_stock' RETURNING VARCHAR2) = 'true'
    ORDER BY price;
    ```
+
+   Expected output:
+   ```
+   PRODUCT_NAME                      PRICE   QUANTITY
+   ------------------------------   ------   --------
+   Ergonomic Wireless Mouse          34.99       120
+   Wireless Bluetooth Headphones     79.99        45
+   Mechanical Gaming Keyboard       129.99        67
+   ```
+
+   /if
+
+   if type="soda"
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     cursor SODA_CURSOR_T;
+     doc SODA_DOCUMENT_T;
+     doc_content CLOB;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('products');
+
+     -- Find products by category and in_stock status
+     cursor := collection.find()
+       .filter('{"category": "Electronics", "in_stock": true}')
+       .getCursor();
+
+     DBMS_OUTPUT.PUT_LINE('Filtered Products (category=Electronics, in_stock=true):');
+     DBMS_OUTPUT.PUT_LINE('-----------------------------------------------------------');
+
+     LOOP
+       IF cursor.has_next() THEN
+         doc := cursor.next();
+         doc_content := doc.get_clob();
+
+         -- Extract and display specific fields
+         DBMS_OUTPUT.PUT_LINE('Product: ' ||
+           JSON_VALUE(doc_content, '$.name') || ', Price: $' ||
+           JSON_VALUE(doc_content, '$.price') || ', Qty: ' ||
+           JSON_VALUE(doc_content, '$.quantity'));
+       ELSE
+         EXIT;
+       END IF;
+     END LOOP;
+
+     cursor.close();
+   END;
+   /
+   ```
+
+   Expected output:
+   ```
+   Filtered Products (category=Electronics, in_stock=true):
+   -----------------------------------------------------------
+   Product: Wireless Bluetooth Headphones, Price: $79.99, Qty: 45
+   Product: Ergonomic Wireless Mouse, Price: $34.99, Qty: 120
+   Product: Mechanical Gaming Keyboard, Price: $129.99, Qty: 67
+   ```
+
+   > **Note:** SODA's `filter()` method uses MongoDB-style query syntax for filtering documents.
+
+   /if
+
+   if type="mongodb"
+
+   ```javascript
+   // Connect to Oracle using MongoDB API
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+   use mydb
+
+   // Find products by category and in_stock status
+   db.products.find(
+     {
+       category: "Electronics",
+       in_stock: true
+     },
+     {
+       _id: 1,
+       name: 1,
+       price: 1,
+       quantity: 1
+     }
+   ).sort({ price: 1 })
+   ```
+
+   Expected output:
+   ```javascript
+   [
+     {
+       _id: 'PROD-002',
+       name: 'Ergonomic Wireless Mouse',
+       price: 34.99,
+       quantity: 120
+     },
+     {
+       _id: 'PROD-001',
+       name: 'Wireless Bluetooth Headphones',
+       price: 79.99,
+       quantity: 45
+     },
+     {
+       _id: 'PROD-003',
+       name: 'Mechanical Gaming Keyboard',
+       price: 129.99,
+       quantity: 67
+     }
+   ]
+   ```
+
+   > **MongoDB API**: Use familiar MongoDB query syntax with Oracle Database. The `find()` method accepts filter criteria and projection fields.
+
+   /if
+
+   if type="rest"
+
+   ```bash
+   # Query products using ORDS SODA REST API with QBE (Query By Example)
+   curl -X POST \
+     "http://localhost:8080/ords/jsonuser/soda/latest/products?action=query" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "$query": {
+         "category": "Electronics",
+         "in_stock": true
+       },
+       "$orderby": {
+         "price": 1
+       },
+       "$fields": {
+         "_id": 1,
+         "name": 1,
+         "price": 1,
+         "quantity": 1
+       }
+     }'
+   ```
+
+   Expected output:
+   ```json
+   {
+     "items": [
+       {
+         "_id": "PROD-002",
+         "name": "Ergonomic Wireless Mouse",
+         "price": 34.99,
+         "quantity": 120
+       },
+       {
+         "_id": "PROD-001",
+         "name": "Wireless Bluetooth Headphones",
+         "price": 79.99,
+         "quantity": 45
+       },
+       {
+         "_id": "PROD-003",
+         "name": "Mechanical Gaming Keyboard",
+         "price": 129.99,
+         "quantity": 67
+       }
+     ],
+     "hasMore": false,
+     "count": 3
+   }
+   ```
+
+   > **REST API**: Use QBE (Query By Example) syntax with `$query`, `$orderby`, and `$fields` operators via HTTP POST.
+
+   /if
+
+   if type="python"
+
+   ```python
+   import oracledb
+   import json
+
+   connection = oracledb.connect(
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost/FREEPDB1"
+   )
+
+   soda = connection.getSodaDatabase()
+   collection = soda.openCollection("products")
+
+   # Find products by category and in_stock status
+   filter_spec = {
+       "category": "Electronics",
+       "in_stock": True
+   }
+
+   documents = collection.find().filter(filter_spec).getDocuments()
+
+   print("Filtered Products (category=Electronics, in_stock=true):")
+   print("-" * 60)
+
+   # Extract and sort by price
+   products = []
+   for doc in documents:
+       content = doc.getContent()
+       products.append({
+           'name': content['name'],
+           'price': content['price'],
+           'quantity': content['quantity']
+       })
+
+   # Sort by price
+   products.sort(key=lambda x: x['price'])
+
+   for p in products:
+       print(f"Product: {p['name']}, Price: ${p['price']}, Qty: {p['quantity']}")
+
+   connection.close()
+   ```
+
+   Expected output:
+   ```
+   Filtered Products (category=Electronics, in_stock=true):
+   ------------------------------------------------------------
+   Product: Ergonomic Wireless Mouse, Price: $34.99, Qty: 120
+   Product: Wireless Bluetooth Headphones, Price: $79.99, Qty: 45
+   Product: Mechanical Gaming Keyboard, Price: $129.99, Qty: 67
+   ```
+
+   > **Python**: The `filter()` method accepts Python dictionaries for filtering, making it natural for Python developers.
+
+   /if
 
 3. Extract nested values:
 
@@ -906,6 +1136,150 @@ Oracle provides multiple ways to update JSON documents.
    END;
    /
    ```
+
+   /if
+
+   if type="mongodb"
+
+   ```javascript
+   // Connect to Oracle using MongoDB API
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+   use mydb
+
+   // Update document by _id - restore product to stock
+   db.products.updateOne(
+     { _id: "PROD-004" },
+     {
+       $set: {
+         in_stock: true,
+         quantity: 15
+       }
+     }
+   )
+   ```
+
+   Expected output:
+   ```javascript
+   {
+     acknowledged: true,
+     matchedCount: 1,
+     modifiedCount: 1
+   }
+   ```
+
+   > **MongoDB API**: Use the `updateOne()` method with `$set` operator to update specific fields. Oracle supports standard MongoDB update operators.
+
+   /if
+
+   if type="rest"
+
+   ```bash
+   # Update document using ORDS SODA REST API
+   # First, get the document key (etag) - required for updates
+   ETAG=$(curl -s -X GET \
+     "http://localhost:8080/ords/jsonuser/soda/latest/products/PROD-004" \
+     -H "Content-Type: application/json" | jq -r '.items[0].id')
+
+   # Now update the document
+   curl -X PUT \
+     "http://localhost:8080/ords/jsonuser/soda/latest/products/PROD-004" \
+     -H "Content-Type: application/json" \
+     -H "If-Match: $ETAG" \
+     -d '{
+       "_id": "PROD-004",
+       "name": "27-inch 4K Monitor",
+       "category": "Electronics",
+       "brand": "ViewPerfect",
+       "price": 449.99,
+       "currency": "USD",
+       "in_stock": true,
+       "quantity": 15,
+       "tags": ["monitor", "4k", "display", "gaming"],
+       "specifications": {
+         "screen_size": "27 inch",
+         "resolution": "3840x2160",
+         "refresh_rate": 144,
+         "panel_type": "IPS"
+       },
+       "rating": {
+         "average": 4.6,
+         "count": 234
+       }
+     }'
+   ```
+
+   Expected output:
+   ```json
+   {
+     "id": "...",
+     "etag": "...",
+     "lastModified": "2024-01-15T10:30:00.000Z"
+   }
+   ```
+
+   > **REST API**: Use HTTP PUT to replace entire documents. The `If-Match` header with the document's etag ensures optimistic locking.
+
+   /if
+
+   if type="python"
+
+   ```python
+   import oracledb
+
+   connection = oracledb.connect(
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost/FREEPDB1"
+   )
+
+   soda = connection.getSodaDatabase()
+   collection = soda.openCollection("products")
+
+   # Find the document by key and update it
+   updated_doc = {
+       "_id": "PROD-004",
+       "name": "27-inch 4K Monitor",
+       "category": "Electronics",
+       "brand": "ViewPerfect",
+       "price": 449.99,
+       "currency": "USD",
+       "in_stock": True,
+       "quantity": 15,
+       "tags": ["monitor", "4k", "display", "gaming"],
+       "specifications": {
+           "screen_size": "27 inch",
+           "resolution": "3840x2160",
+           "refresh_rate": 144,
+           "panel_type": "IPS"
+       },
+       "rating": {
+           "average": 4.6,
+           "count": 234
+       }
+   }
+
+   # Replace the document
+   result = collection.find().key("PROD-004").replaceOne(updated_doc)
+
+   if result and result.getContent():
+       print("1 row updated.")
+       connection.commit()
+       print("\nCommit complete.")
+   else:
+       print("Document not found or update failed.")
+
+   connection.close()
+   ```
+
+   Expected output:
+   ```
+   1 row updated.
+
+   Commit complete.
+   ```
+
+   > **Python**: Use `replaceOne()` to replace the entire document. The method returns the updated document object.
 
    /if
 
@@ -1229,19 +1603,215 @@ db.products.find(
 
 > **Note:** This workshop focuses on SQL/JSON syntax, but all concepts apply equally to the MongoDB API.
 
-## Task 8: Clean Up Test Data (Optional)
+## Task 8: Delete JSON Documents
 
-If you want to remove the test data:
+Oracle provides multiple ways to delete JSON documents from collections.
+
+### Step 1: Delete Specific Documents
+
+1. Delete a single product by ID:
+
+   if type="sql"
+
+   ```sql
+   DELETE FROM products
+   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-002';
+
+   COMMIT;
+   ```
+
+   Expected output:
+   ```
+   1 row deleted.
+
+   Commit complete.
+   ```
+
+   /if
+
+   if type="soda"
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('products');
+
+     -- Delete document by key
+     status := collection.find().key('PROD-002').remove();
+
+     IF status = 1 THEN
+       DBMS_OUTPUT.PUT_LINE(status || ' document removed.');
+       DBMS_OUTPUT.PUT_LINE('');
+       DBMS_OUTPUT.PUT_LINE('Commit complete.');
+     END IF;
+   END;
+   /
+   ```
+
+   Expected output:
+   ```
+   1 document removed.
+
+   Commit complete.
+   ```
+
+   /if
+
+   if type="mongodb"
+
+   ```javascript
+   // Connect to Oracle using MongoDB API
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+   use mydb
+
+   // Delete one document by _id
+   db.products.deleteOne({ _id: "PROD-002" })
+   ```
+
+   Expected output:
+   ```javascript
+   {
+     acknowledged: true,
+     deletedCount: 1
+   }
+   ```
+
+   > **MongoDB API**: Use `deleteOne()` for single document deletion. Returns the count of deleted documents.
+
+   /if
+
+   if type="rest"
+
+   ```bash
+   # Delete document using ORDS SODA REST API
+   curl -X DELETE \
+     "http://localhost:8080/ords/jsonuser/soda/latest/products/PROD-002" \
+     -H "Content-Type: application/json"
+   ```
+
+   Expected output:
+   ```json
+   {
+     "status": "deleted"
+   }
+   ```
+
+   > **REST API**: Use HTTP DELETE with the document key. Returns status confirmation.
+
+   /if
+
+   if type="python"
+
+   ```python
+   import oracledb
+
+   connection = oracledb.connect(
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost/FREEPDB1"
+   )
+
+   soda = connection.getSodaDatabase()
+   collection = soda.openCollection("products")
+
+   # Delete document by key
+   count = collection.find().key("PROD-002").remove()
+
+   print(f"{count} document removed.")
+   connection.commit()
+   print("\nCommit complete.")
+
+   connection.close()
+   ```
+
+   Expected output:
+   ```
+   1 document removed.
+
+   Commit complete.
+   ```
+
+   > **Python**: The `remove()` method returns the count of deleted documents.
+
+   /if
+
+2. Verify the deletion:
+
+   ```sql
+   SELECT COUNT(*) FROM products;
+   ```
+
+   Expected output: `3` (one less than before)
+
+### Step 2: Delete Multiple Documents
+
+1. Delete products with low stock:
+
+   if type="sql"
+
+   ```sql
+   DELETE FROM products
+   WHERE JSON_VALUE(json_document, '$.quantity' RETURNING NUMBER) < 50;
+
+   COMMIT;
+   ```
+
+   /if
+
+   if type="soda"
+
+   ```sql
+   DECLARE
+     collection SODA_COLLECTION_T;
+     status NUMBER;
+   BEGIN
+     collection := DBMS_SODA.OPEN_COLLECTION('products');
+
+     -- Delete documents matching filter
+     status := collection.find()
+       .filter('{"quantity": {"$lt": 50}}')
+       .remove();
+
+     DBMS_OUTPUT.PUT_LINE(status || ' documents removed.');
+   END;
+   /
+   ```
+
+   /if
+
+   if type="mongodb"
+
+   ```javascript
+   // Delete multiple documents
+   db.products.deleteMany({ quantity: { $lt: 50 } })
+   ```
+
+   /if
+
+   if type="python"
+
+   ```python
+   # Delete multiple documents matching filter
+   filter_spec = {"quantity": {"$lt": 50}}
+   count = collection.find().filter(filter_spec).remove()
+   print(f"{count} documents removed.")
+   connection.commit()
+   ```
+
+   /if
+
+### Step 3: Clean Up (Optional)
+
+If you want to remove all test data:
 
 ```sql
--- Delete specific products
-DELETE FROM products
-WHERE JSON_VALUE(json_document, '$._id') IN ('PROD-001', 'PROD-002');
-
--- Or truncate entire collection
+-- Truncate entire collection
 TRUNCATE TABLE products;
 
--- Drop collection
+-- Or drop collection completely
 BEGIN
   DBMS_SODA.DROP_COLLECTION('products');
 END;

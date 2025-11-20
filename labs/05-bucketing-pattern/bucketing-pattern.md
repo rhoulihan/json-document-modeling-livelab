@@ -120,6 +120,12 @@ CREATE TABLE sensor_data (
   created_on TIMESTAMP DEFAULT SYSTIMESTAMP
 );
 
+**SQL Approach:**
+
+if type="sql"
+
+```sql
+<copy>
 -- Insert sensor metadata document
 INSERT INTO sensor_data (json_document) VALUES (
   JSON_OBJECT(
@@ -156,6 +162,71 @@ INSERT INTO sensor_data (json_document) VALUES (
     )
   )
 );
+</copy>
+```
+
+/if
+
+**SODA Approach:**
+
+if type="soda"
+
+```sql
+<copy>
+DECLARE
+  collection SODA_COLLECTION_T;
+  status NUMBER;
+BEGIN
+  collection := DBMS_SODA.OPEN_COLLECTION('sensor_data');
+
+  -- Insert sensor metadata document
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "SENSOR#temp001",
+        "type": "sensor",
+        "sensor_id": "temp001",
+        "name": "Warehouse Temperature Sensor",
+        "location": "Warehouse A - Zone 3",
+        "unit": "celsius",
+        "config": {
+          "sample_rate_seconds": 1,
+          "alert_threshold_min": 18,
+          "alert_threshold_max": 26
+        },
+        "installed_date": "2024-01-15"
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (sensor metadata).');
+
+  -- Insert hourly bucket with readings
+  status := collection.insert_one(
+    SODA_DOCUMENT_T(
+      b_content => UTL_RAW.cast_to_raw('{
+        "_id": "SENSOR#temp001#BUCKET#2024-11-18-14",
+        "type": "sensor_bucket",
+        "sensor_id": "temp001",
+        "bucket_start": "2024-11-18T14:00:00Z",
+        "bucket_end": "2024-11-18T14:59:59Z",
+        "reading_count": 0,
+        "readings": [],
+        "summary": {
+          "min": null,
+          "max": null,
+          "avg": null,
+          "computed": false
+        }
+      }')
+    )
+  );
+  DBMS_OUTPUT.PUT_LINE(status || ' row created (bucket).');
+END;
+/
+</copy>
+```
+
+/if
 
 -- Query sensor with recent buckets
 SELECT JSON_QUERY(json_document, '$' PRETTY)

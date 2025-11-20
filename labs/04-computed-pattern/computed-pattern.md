@@ -193,6 +193,103 @@ PL/SQL procedure successfully completed.
 
 /if
 
+**MongoDB API Approach:**
+
+if type="mongodb"
+
+```javascript
+<copy>
+// Connect to Oracle using MongoDB API
+// mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+
+use mydb
+
+// Insert post with pre-computed engagement metrics
+db.social_data.insertOne({
+  _id: "POST#12345",
+  type: "post",
+  user_id: "USER-789",
+  user_name: "Alice Smith",
+  content: "Check out this amazing photo!",
+  created_at: new Date(),
+  engagement: {
+    like_count: 0,
+    comment_count: 0,
+    share_count: 0,
+    view_count: 0,
+    last_updated: new Date()
+  }
+})
+</copy>
+```
+
+Expected output:
+```javascript
+{
+  acknowledged: true,
+  insertedId: 'POST#12345'
+}
+```
+
+> **MongoDB API**: Pre-computed metrics are a standard MongoDB pattern. Initialize counters at 0, then increment atomically using `$inc` operator.
+
+/if
+
+**Python Approach:**
+
+if type="python"
+
+```python
+<copy>
+import oracledb
+from datetime import datetime
+
+connection = oracledb.connect(
+    user="jsonuser",
+    password="WelcomeJson#123",
+    dsn="localhost/FREEPDB1"
+)
+
+soda = connection.getSodaDatabase()
+collection = soda.openCollection("social_data")
+
+# Insert post with pre-computed engagement metrics
+# Metrics are calculated in the application layer
+current_time = datetime.utcnow().isoformat() + 'Z'
+
+post = {
+    "_id": "POST#12345",
+    "type": "post",
+    "user_id": "USER-789",
+    "user_name": "Alice Smith",
+    "content": "Check out this amazing photo!",
+    "created_at": current_time,
+    "engagement": {
+        "like_count": 0,
+        "comment_count": 0,
+        "share_count": 0,
+        "view_count": 0,
+        "last_updated": current_time
+    }
+}
+
+doc = collection.insertOne(post)
+print("1 row created.")
+connection.commit()
+
+connection.close()
+</copy>
+```
+
+Expected output:
+```
+1 row created.
+```
+
+> **Python**: Application calculates and maintains metrics. Perfect for data pipelines and analytics workflows where computation happens in Python.
+
+/if
+
 -- Insert engagement events (individual documents)
 -- Note: We store these as separate documents but maintain computed totals in the post
 
@@ -776,6 +873,107 @@ Average query time: 8.45 ms
 Total time for 100 queries: 845.20 ms
 */
 ```
+
+**MongoDB Aggregation Pipeline (Real-Time Computation):**
+
+if type="mongodb"
+
+```javascript
+<copy>
+// Real-time aggregation using MongoDB aggregation pipeline
+// Oracle supports MongoDB aggregation operators!
+
+// Example 1: Count likes for a specific post
+db.social_data.aggregate([
+  {
+    $match: {
+      post_id: "POST#00025",
+      type: "like"
+    }
+  },
+  {
+    $group: {
+      _id: "$post_id",
+      like_count: { $sum: 1 }
+    }
+  }
+])
+
+// Example 2: Aggregate engagement metrics across all posts
+db.social_data.aggregate([
+  {
+    $match: { type: "like" }
+  },
+  {
+    $group: {
+      _id: "$post_id",
+      like_count: { $sum: 1 },
+      unique_users: { $addToSet: "$user_id" }
+    }
+  },
+  {
+    $project: {
+      post_id: "$_id",
+      like_count: 1,
+      unique_user_count: { $size: "$unique_users" }
+    }
+  },
+  {
+    $sort: { like_count: -1 }
+  },
+  {
+    $limit: 10
+  }
+])
+
+// Example 3: Calculate average engagement per user
+db.social_data.aggregate([
+  {
+    $match: { type: "post" }
+  },
+  {
+    $group: {
+      _id: "$user_id",
+      total_posts: { $sum: 1 },
+      avg_likes: { $avg: "$engagement.like_count" },
+      avg_comments: { $avg: "$engagement.comment_count" },
+      total_engagement: {
+        $sum: {
+          $add: [
+            "$engagement.like_count",
+            "$engagement.comment_count",
+            "$engagement.share_count"
+          ]
+        }
+      }
+    }
+  },
+  {
+    $sort: { total_engagement: -1 }
+  }
+])
+</copy>
+```
+
+Expected output (Example 1):
+```javascript
+[
+  {
+    _id: 'POST#00025',
+    like_count: 35
+  }
+]
+```
+
+> **MongoDB API**: Oracle supports MongoDB aggregation operators including `$match`, `$group`, `$sum`, `$avg`, `$addToSet`, `$project`, and `$sort`. Use aggregation pipelines for real-time computation when:
+> - Exact real-time accuracy is required
+> - Data changes frequently
+> - Complex analytics across multiple fields
+> - Results are needed infrequently
+
+**Trade-off:** Aggregation queries (8-50ms) are slower than reading pre-computed values (1-3ms), but provide real-time accuracy.
+
+/if
 
 ### Step 3: Benchmark Computed Pattern
 

@@ -29,17 +29,19 @@ In this lab, you will:
 The Subset Pattern involves storing a subset of frequently accessed data alongside a complete dataset stored separately:
 
 ```sql
--- Create collection
-CREATE TABLE social_media (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
+-- Create JSON Collection Table
+CREATE JSON COLLECTION TABLE social_media;
+
+-- Create indexes
+CREATE INDEX idx_social_media_id ON social_media (JSON_VALUE(data, '$._id'));
+CREATE INDEX idx_social_media_type ON social_media (JSON_VALUE(data, '$.type'));
 ```
 
 **Expected output:**
 ```
 Table created.
+Index created.
+Index created.
 ```
 
 **SQL Approach:**
@@ -47,9 +49,8 @@ Table created.
 if type="sql"
 
 ```sql
-<copy>
 -- User profile with subset of top friends (frequently accessed)
-INSERT INTO social_media (json_document) VALUES (
+INSERT INTO social_media (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'USER#123',
     'type' VALUE 'user',
@@ -68,7 +69,7 @@ INSERT INTO social_media (json_document) VALUES (
 );
 
 -- Complete friends list (paginated, for "See All Friends" view)
-INSERT INTO social_media (json_document) VALUES (
+INSERT INTO social_media (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'USER#123#FRIENDS#page1',
     'type' VALUE 'friends_page',
@@ -80,7 +81,7 @@ INSERT INTO social_media (json_document) VALUES (
   )
 );
 
-INSERT INTO social_media (json_document) VALUES (
+INSERT INTO social_media (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'USER#123#FRIENDS#page2',
     'type' VALUE 'friends_page',
@@ -93,75 +94,14 @@ INSERT INTO social_media (json_document) VALUES (
 );
 
 COMMIT;
-</copy>
 ```
 
 Expected output:
 ```
-3 rows created.
-
+1 row created.
+1 row created.
+1 row created.
 Commit complete.
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('social_media');
-
-  -- User profile with subset of top friends
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "USER#123",
-        "type": "user",
-        "username": "jsmith",
-        "email": "jsmith@example.com",
-        "follower_count": 5247,
-        "top_friends": [
-          {"user_id": "USER#456", "username": "alice", "avatar": "https://..."},
-          {"user_id": "USER#789", "username": "bob", "avatar": "https://..."},
-          {"user_id": "USER#234", "username": "carol", "avatar": "https://..."}
-        ]
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE('1 row created (user profile).');
-
-  -- Complete friends list - page 1
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "USER#123#FRIENDS#page1",
-        "type": "friends_page",
-        "user_id": "USER#123",
-        "page": 1,
-        "friends": []
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE('1 row created (friends page 1).');
-
-  COMMIT;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row created (user profile).
-1 row created (friends page 1).
-
-PL/SQL procedure successfully completed.
 ```
 
 /if
@@ -171,7 +111,6 @@ PL/SQL procedure successfully completed.
 if type="mongodb"
 
 ```javascript
-<copy>
 // Connect to Oracle using MongoDB API
 // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
 
@@ -205,7 +144,6 @@ db.social_media.insertOne({
     // All 1000 friends on page 1
   ]
 })
-</copy>
 ```
 
 Expected output:
@@ -229,7 +167,6 @@ Expected output:
 if type="rest"
 
 ```bash
-<copy>
 # Insert user profile with top friends subset
 curl -X POST \
   "http://localhost:8080/ords/jsonuser/soda/latest/social_media" \
@@ -258,7 +195,6 @@ curl -X POST \
     "page": 1,
     "friends": []
   }'
-</copy>
 ```
 
 Expected output:
@@ -279,7 +215,6 @@ Expected output:
 if type="python"
 
 ```python
-<copy>
 import oracledb
 
 connection = oracledb.connect(
@@ -326,7 +261,6 @@ print("Friends page 1 created")
 
 connection.commit()
 connection.close()
-</copy>
 ```
 
 Expected output:
@@ -338,109 +272,20 @@ Friends page 1 created
 > **Python**: Subset Pattern in Python data pipelines. Process and cache frequently accessed subsets separately from complete datasets for performance.
 
 **Subset Pattern Benefits:**
-- ✅ Fast profile loads (only top friends, ~2KB vs 500KB for all friends)
-- ✅ Reduced bandwidth for mobile apps
-- ✅ Pagination for complete data ("See All Friends")
-- ✅ 80/20 rule: 80% of accesses need only 20% of data
+- Fast profile loads (only top friends, ~2KB vs 500KB for all friends)
+- Reduced bandwidth for mobile apps
+- Pagination for complete data ("See All Friends")
+- 80/20 rule: 80% of accesses need only 20% of data
 
 /if
 
-Expected output:
-```
-1 row created.
-1 row created.
-1 row created.
-Commit complete.
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-  total_inserted NUMBER := 0;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('social_media');
-
-  -- User profile with subset of top friends (frequently accessed)
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "USER#123",
-        "type": "user",
-        "username": "jsmith",
-        "email": "jsmith@example.com",
-        "follower_count": 5247,
-        "top_friends": [
-          {"user_id": "USER#456", "username": "alice", "avatar": "https://..."},
-          {"user_id": "USER#789", "username": "bob", "avatar": "https://..."},
-          {"user_id": "USER#234", "username": "carol", "avatar": "https://..."}
-        ]
-      }')
-    )
-  );
-  total_inserted := total_inserted + status;
-  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
-
-  -- Complete friends list (paginated, for "See All Friends" view)
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "USER#123#FRIENDS#page1",
-        "type": "friends_page",
-        "user_id": "USER#123",
-        "page": 1,
-        "friends": []
-      }')
-    )
-  );
-  total_inserted := total_inserted + status;
-  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
-
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "USER#123#FRIENDS#page2",
-        "type": "friends_page",
-        "user_id": "USER#123",
-        "page": 2,
-        "friends": []
-      }')
-    )
-  );
-  total_inserted := total_inserted + status;
-  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
-
-  DBMS_OUTPUT.PUT_LINE('Commit complete.');
-  COMMIT;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row created.
-1 row created.
-1 row created.
-Commit complete.
-
-PL/SQL procedure successfully completed.
-```
-
-/if
+### Step 2: Query Subset Data
 
 ```sql
 -- Query 1: Get user profile with top friends (fast, single query)
-SELECT JSON_QUERY(json_document, '$' PRETTY)
+SELECT JSON_SERIALIZE(data PRETTY)
 FROM social_media
-WHERE JSON_VALUE(json_document, '$._id') = 'USER#123';
+WHERE JSON_VALUE(data, '$._id') = 'USER#123';
 ```
 
 **Expected output:**
@@ -476,17 +321,18 @@ WHERE JSON_VALUE(json_document, '$._id') = 'USER#123';
 
 ```sql
 -- Query 2: Get all friends when user clicks "See All" (paginated)
-SELECT JSON_QUERY(json_document, '$' PRETTY)
+SELECT JSON_SERIALIZE(data PRETTY)
 FROM social_media
-WHERE JSON_VALUE(json_document, '$._id') = 'USER#123#FRIENDS#page1';
+WHERE JSON_VALUE(data, '$._id') LIKE 'USER#123#FRIENDS#%'
+ORDER BY JSON_VALUE(data, '$.page' RETURNING NUMBER);
 -- Latency: 5-10ms (only when needed)
 ```
 
 **Benefits:**
-- ✅ Hot path (profile view) is fast (single small document)
-- ✅ Cold path (see all friends) is acceptable (paginated)
-- ✅ Avoids unbounded array growth in profile document
-- ✅ Subset can be updated independently
+- Hot path (profile view) is fast (single small document)
+- Cold path (see all friends) is acceptable (paginated)
+- Avoids unbounded array growth in profile document
+- Subset can be updated independently
 
 ## Task 2: Schema Versioning
 
@@ -499,9 +345,8 @@ Add versioning to support schema evolution:
 if type="sql"
 
 ```sql
-<copy>
 -- Version 1 schema
-INSERT INTO social_media (json_document) VALUES (
+INSERT INTO social_media (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'PRODUCT#001',
     'schema_version' VALUE 1,
@@ -513,7 +358,7 @@ INSERT INTO social_media (json_document) VALUES (
 );
 
 -- Version 2 schema (added dimensions field)
-INSERT INTO social_media (json_document) VALUES (
+INSERT INTO social_media (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'PRODUCT#002',
     'schema_version' VALUE 2,
@@ -529,340 +374,111 @@ INSERT INTO social_media (json_document) VALUES (
     )
   )
 );
-</copy>
+
+COMMIT;
 ```
 
 /if
 
-**SODA Approach:**
-
-if type="soda"
+### Step 2: Query Multiple Schema Versions
 
 ```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('social_media');
-
-  -- Version 1 schema
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "PRODUCT#001",
-        "schema_version": 1,
-        "type": "product",
-        "name": "Widget",
-        "price": 29.99,
-        "category": "gadgets"
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE(status || ' row created (schema v1).');
-
-  -- Version 2 schema (added dimensions field)
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "PRODUCT#002",
-        "schema_version": 2,
-        "type": "product",
-        "name": "Gadget",
-        "price": 39.99,
-        "category": "gadgets",
-        "dimensions": {
-          "length": 10,
-          "width": 5,
-          "height": 3,
-          "unit": "cm"
-        }
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE(status || ' row created (schema v2).');
-END;
-/
-</copy>
-```
-
-/if
-
 -- Query handling multiple schema versions
 SELECT
-  JSON_VALUE(json_document, '$._id') AS product_id,
-  JSON_VALUE(json_document, '$.schema_version' RETURNING NUMBER) AS schema_version,
-  JSON_VALUE(json_document, '$.name') AS product_name,
-  JSON_VALUE(json_document, '$.price' RETURNING NUMBER) AS price,
+  JSON_VALUE(data, '$._id') AS product_id,
+  JSON_VALUE(data, '$.schema_version' RETURNING NUMBER) AS schema_version,
+  JSON_VALUE(data, '$.name') AS product_name,
+  JSON_VALUE(data, '$.price' RETURNING NUMBER) AS price,
   -- Handle optional field from v2
-  COALESCE(JSON_VALUE(json_document, '$.dimensions.length' RETURNING NUMBER), 0) AS length
+  COALESCE(JSON_VALUE(data, '$.dimensions.length' RETURNING NUMBER), 0) AS length
 FROM social_media
-WHERE JSON_VALUE(json_document, '$.type') = 'product';
+WHERE JSON_VALUE(data, '$.type') = 'product';
+```
 
-/*
-Result:
+Expected output:
+```
 PRODUCT_ID   SCHEMA_VERSION  PRODUCT_NAME  PRICE   LENGTH
 -----------  --------------  ------------  ------  ------
 PRODUCT#001  1               Widget        29.99   0
 PRODUCT#002  2               Gadget        39.99   10
-*/
 ```
 
-### Step 2: Schema Migration Strategy
+### Step 3: Schema Migration Using JSON_TRANSFORM
 
 ```sql
--- Lazy migration: Migrate documents on read/write
-CREATE OR REPLACE FUNCTION migrate_product_v1_to_v2(
-  p_doc JSON_OBJECT_T
-) RETURN JSON_OBJECT_T IS
-  v_migrated JSON_OBJECT_T;
-BEGIN
-  v_migrated := p_doc;
+-- Batch migration: Migrate all v1 documents to v2 using JSON_TRANSFORM
+UPDATE social_media
+SET data = JSON_TRANSFORM(
+  data,
+  SET '$.schema_version' = 2,
+  SET '$.dimensions' = JSON_OBJECT(
+    'length' VALUE 0,
+    'width' VALUE 0,
+    'height' VALUE 0,
+    'unit' VALUE 'cm'
+  )
+)
+WHERE JSON_VALUE(data, '$.type') = 'product'
+  AND JSON_VALUE(data, '$.schema_version' RETURNING NUMBER) = 1;
 
-  -- Check if migration needed
-  IF v_migrated.get_Number('schema_version') = 1 THEN
-    -- Add default dimensions
-    v_migrated.put('dimensions', JSON_OBJECT_T(JSON_OBJECT(
-      'length' VALUE 0,
-      'width' VALUE 0,
-      'height' VALUE 0,
-      'unit' VALUE 'cm'
-    )));
+COMMIT;
 
-    -- Update schema version
-    v_migrated.put('schema_version', 2);
-  END IF;
-
-  RETURN v_migrated;
-END;
-/
-
--- Batch migration: Migrate all v1 documents to v2
-BEGIN
-  FOR doc_rec IN (
-    SELECT id, json_document
-    FROM social_media
-    WHERE JSON_VALUE(json_document, '$.type') = 'product'
-      AND JSON_VALUE(json_document, '$.schema_version' RETURNING NUMBER) = 1
-  ) LOOP
-    UPDATE social_media
-    SET json_document = JSON_MERGEPATCH(
-      doc_rec.json_document,
-      JSON_OBJECT(
-        'schema_version' VALUE 2,
-        'dimensions' VALUE JSON_OBJECT(
-          'length' VALUE 0,
-          'width' VALUE 0,
-          'height' VALUE 0,
-          'unit' VALUE 'cm'
-        )
-      )
-    )
-    WHERE id = doc_rec.id;
-  END LOOP;
-
-  COMMIT;
-  DBMS_OUTPUT.PUT_LINE('Migration complete: v1 → v2');
-END;
-/
+-- Verify migration
+SELECT
+  JSON_VALUE(data, '$._id') AS product_id,
+  JSON_VALUE(data, '$.schema_version' RETURNING NUMBER) AS schema_version
+FROM social_media
+WHERE JSON_VALUE(data, '$.type') = 'product';
 ```
 
-## Task 3: Migration from Normalized to Single Collection
-
-### Step 1: Phased Migration Strategy
-
-**Phase 1: Dual Write**
-```sql
--- Write to both old (normalized) and new (single collection) systems
--- Application code:
--- 1. Write to normalized tables (existing system)
--- 2. Also write to single collection (new system)
--- 3. Read from normalized tables (maintain consistency)
-
--- Phase 2: Verify Data Consistency
--- Compare counts and sample data between systems
-
-SELECT 'Normalized' AS system, COUNT(*) AS customer_count FROM customers_normalized
-UNION ALL
-SELECT 'Single Collection', COUNT(*) FROM ecommerce_single WHERE JSON_VALUE(json_document, '$.type') = 'customer';
-
--- Phase 3: Switch Reads to Single Collection
--- Application code:
--- 1. Write to both systems (continue)
--- 2. Read from single collection (new)
--- 3. Keep old system for rollback
-
--- Phase 4: Deprecate Normalized System
--- Once confident, stop writes to old system
+Expected output (all products now v2):
+```
+PRODUCT_ID   SCHEMA_VERSION
+-----------  --------------
+PRODUCT#001  2
+PRODUCT#002  2
 ```
 
-### Step 2: Data Migration Script
-
-```sql
--- Migrate existing data from normalized to single collection
-DECLARE
-  v_migrated_count NUMBER := 0;
-BEGIN
-  DBMS_OUTPUT.PUT_LINE('Starting migration...');
-
-  -- Migrate customers
-  FOR cust IN (SELECT * FROM customers_normalized) LOOP
-    INSERT INTO ecommerce_single (json_document) VALUES (
-      JSON_MERGEPATCH(
-        cust.json_document,
-        JSON_OBJECT(
-          '_id' VALUE 'CUSTOMER#' || JSON_VALUE(cust.json_document, '$._id')
-        )
-      )
-    );
-    v_migrated_count := v_migrated_count + 1;
-  END LOOP;
-
-  DBMS_OUTPUT.PUT_LINE('Migrated ' || v_migrated_count || ' customers');
-
-  -- Migrate orders with denormalized customer data
-  v_migrated_count := 0;
-  FOR ord IN (SELECT * FROM orders_normalized) LOOP
-    DECLARE
-      v_customer_data JSON_OBJECT_T;
-      v_customer_id VARCHAR2(100);
-    BEGIN
-      v_customer_id := JSON_VALUE(ord.json_document, '$.customer_id');
-
-      -- Get customer data for denormalization
-      SELECT JSON_OBJECT_T(json_document)
-      INTO v_customer_data
-      FROM customers_normalized
-      WHERE JSON_VALUE(json_document, '$._id') = v_customer_id;
-
-      -- Insert order with denormalized customer data
-      INSERT INTO ecommerce_single (json_document) VALUES (
-        JSON_MERGEPATCH(
-          ord.json_document,
-          JSON_OBJECT(
-            '_id' VALUE 'CUSTOMER#' || v_customer_id || '#ORDER#' || JSON_VALUE(ord.json_document, '$._id'),
-            'customer_name' VALUE v_customer_data.get_String('name'),
-            'customer_email' VALUE v_customer_data.get_String('email'),
-            'customer_tier' VALUE v_customer_data.get_String('tier')
-          )
-        )
-      );
-      v_migrated_count := v_migrated_count + 1;
-    END;
-  END LOOP;
-
-  COMMIT;
-  DBMS_OUTPUT.PUT_LINE('Migrated ' || v_migrated_count || ' orders');
-  DBMS_OUTPUT.PUT_LINE('Migration complete!');
-END;
-/
-```
-
-## Task 4: When NOT to Use Single Collection
+## Task 3: When NOT to Use Single Collection
 
 ### Step 1: Anti-Patterns - Inappropriate Use Cases
 
-**❌ Don't Use Single Collection When:**
+**1. Different Service Boundaries**
 
-1. **Completely Different Service Boundaries**
 ```sql
--- ❌ BAD: Mixing user accounts and financial transactions
-{
-  "_id": "USER#123",
-  "type": "user"
-}
-{
-  "_id": "TRANSACTION#456",
-  "type": "bank_transaction"  -- Different service domain!
-}
-
--- ✅ GOOD: Separate collections for separate services
-CREATE TABLE user_service (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-
-CREATE TABLE banking_service (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
+-- BAD: Mixing user accounts and financial transactions
+-- GOOD: Separate collections for separate services
+CREATE JSON COLLECTION TABLE user_service;
+CREATE JSON COLLECTION TABLE banking_service;
 ```
 
-2. **Different Security Requirements**
+**2. Different Security Requirements**
+
 ```sql
--- ❌ BAD: Mixing public and highly sensitive data
-{
-  "_id": "USER#123",
-  "type": "user_profile",  -- Public data
-  "security_clearance": "top_secret"  -- Shouldn't be in same collection!
-}
-
--- ✅ GOOD: Separate collections with different access controls
-CREATE TABLE public_profiles (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-
-CREATE TABLE sensitive_data (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-) TABLESPACE secure_tablespace;
+-- BAD: Mixing public and highly sensitive data
+-- GOOD: Separate collections with different access controls
+CREATE JSON COLLECTION TABLE public_profiles;
+CREATE JSON COLLECTION TABLE sensitive_data;  -- Different tablespace/encryption
 ```
 
-3. **Different Scaling Patterns**
+**3. Different Scaling Patterns**
+
 ```sql
--- ❌ BAD: Mixing hot and cold data with different growth rates
-{
-  "_id": "CONFIG#app-settings",
-  "type": "config"  -- 10 documents, rarely changes
-}
-{
-  "_id": "LOG#2024-11-19#001",
-  "type": "log"  -- 1M documents/day, high write volume
-}
-
--- ✅ GOOD: Separate collections optimized differently
-CREATE TABLE app_config (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);  -- Small, read-heavy
-
-CREATE TABLE app_logs (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);  -- Large, write-heavy with partitioning
+-- BAD: Mixing hot and cold data with different growth rates
+-- Config (10 documents) vs logs (1M documents/day)
+-- GOOD: Separate collections optimized differently
+CREATE JSON COLLECTION TABLE app_config;   -- Small, read-heavy
+CREATE JSON COLLECTION TABLE app_logs;     -- Large, write-heavy with partitioning
 ```
 
-4. **Completely Different Access Patterns**
+**4. Completely Different Access Patterns**
+
 ```sql
--- ❌ BAD: Mixing entities never accessed together
-{
-  "_id": "WAREHOUSE#inventory-item",
-  "type": "inventory"
-}
-{
-  "_id": "MARKETING#email-campaign",
-  "type": "email_campaign"  -- Never queried with inventory!
-}
-
--- ✅ GOOD: Separate collections for unrelated entities
-CREATE TABLE inventory (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-
-CREATE TABLE marketing_campaigns (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
+-- BAD: Mixing entities never accessed together
+-- Inventory and email campaigns never queried together
+-- GOOD: Separate collections for unrelated entities
+CREATE JSON COLLECTION TABLE inventory;
+CREATE JSON COLLECTION TABLE marketing_campaigns;
 ```
 
 ### Step 2: Decision Framework
@@ -873,13 +489,13 @@ Use this flowchart logic:
 Are entities accessed together in 80%+ of queries?
 ├─ YES → Are they in the same service boundary?
 │  ├─ YES → Do they have similar security requirements?
-│  │  ├─ YES → Use Single Collection ✅
-│  │  └─ NO → Use Separate Collections ❌
-│  └─ NO → Use Separate Collections ❌
-└─ NO → Use Separate Collections ❌
+│  │  ├─ YES → Use Single Collection
+│  │  └─ NO → Use Separate Collections
+│  └─ NO → Use Separate Collections
+└─ NO → Use Separate Collections
 ```
 
-## Task 5: Comprehensive Best Practices Checklist
+## Task 4: Comprehensive Best Practices Checklist
 
 ### Step 1: Design Phase Checklist
 
@@ -900,7 +516,6 @@ Are entities accessed together in 80%+ of queries?
 **Performance Optimization:**
 - [ ] Identified required indexes (composite key, type, frequently queried fields)
 - [ ] Planned multivalue indexes for array fields
-- [ ] Considered partial indexes for subset queries
 - [ ] Planned bucketing strategy for time-series data
 - [ ] Identified computed metrics to pre-calculate
 
@@ -908,9 +523,8 @@ Are entities accessed together in 80%+ of queries?
 
 **Code Quality:**
 - [ ] Implemented schema versioning for all document types
-- [ ] Created validation functions for each entity type
+- [ ] Created validation queries for each entity type
 - [ ] Implemented document size monitoring
-- [ ] Created triggers to prevent oversized documents (over 29MB)
 - [ ] Implemented proper error handling
 
 **Testing:**
@@ -918,7 +532,6 @@ Are entities accessed together in 80%+ of queries?
 - [ ] Tested with documents at various sizes (1KB, 10KB, 100KB)
 - [ ] Verified query performance meets requirements
 - [ ] Tested index effectiveness (before/after comparison)
-- [ ] Simulated growth over time (1 year, 5 years)
 
 ### Step 3: Production Readiness Checklist
 
@@ -926,21 +539,13 @@ Are entities accessed together in 80%+ of queries?
 - [ ] Created view to monitor document sizes by type
 - [ ] Set up alerts for documents exceeding 9MB (LOB cliff warning)
 - [ ] Implemented query performance tracking
-- [ ] Created dashboard for collection statistics
 
 **Maintenance:**
 - [ ] Scheduled index rebuild job (monthly or when bloat over 20%)
 - [ ] Implemented archival strategy for old data
-- [ ] Created backup and recovery procedures
 - [ ] Documented schema versions and migration paths
 
-**Documentation:**
-- [ ] Documented composite key patterns used
-- [ ] Documented all entity types and their schemas
-- [ ] Created query pattern examples for developers
-- [ ] Documented denormalization decisions and rationale
-
-## Task 6: Workshop Summary
+## Task 5: Workshop Summary
 
 ### Key Patterns Learned
 
@@ -951,7 +556,7 @@ Are entities accessed together in 80%+ of queries?
 
 2. **Computed Pattern (Lab 4)**
    - Pre-calculate frequently accessed metrics
-   - Use incremental updates or batch jobs
+   - Use JSON_TRANSFORM for atomic updates
 
 3. **Bucketing Pattern (Lab 5)**
    - Group time-series data into fixed-size buckets
@@ -967,28 +572,38 @@ Are entities accessed together in 80%+ of queries?
 
 6. **Indexing Strategies (Lab 8)**
    - Always index composite keys and type discriminator
-   - Use partial indexes for subset queries
+   - Use multivalue indexes for array queries
 
 ### Performance Improvements Achieved
 
-- Single Collection vs Multiple Collections: **6-10x faster**
-- Inline (< 7,950 bytes) vs Large LOB (> 10MB): **70-90x faster**
-- Indexed vs Non-indexed queries: **10-50x faster**
-- Bucketing vs Individual documents: **60x faster** for time-series
+| Pattern | Improvement |
+|---------|-------------|
+| Single Collection vs Multiple Collections | **6-10x faster** |
+| Inline (< 7,950 bytes) vs Large LOB (> 10MB) | **70-90x faster** |
+| Indexed vs Non-indexed queries | **10-50x faster** |
+| Bucketing vs Individual documents | **60x faster** |
+
+## Task 6: Cleanup
+
+```sql
+-- Clean up (optional - keep for reference)
+-- DROP TABLE social_media PURGE;
+```
 
 ## Conclusion
 
 Congratulations! You have completed the Oracle JSON Collections Document Modeling workshop.
 
 **You now know how to:**
-- ✅ Design access pattern-first data models
-- ✅ Implement Single Collection/Table design pattern
-- ✅ Use composite keys for hierarchical relationships
-- ✅ Apply strategic denormalization
-- ✅ Avoid LOB performance cliffs
-- ✅ Create efficient indexes for polymorphic collections
-- ✅ Measure and optimize performance
-- ✅ Make informed design decisions based on trade-offs
+- Design access pattern-first data models
+- Implement Single Collection/Table design pattern
+- Use composite keys for hierarchical relationships
+- Apply strategic denormalization
+- Avoid LOB performance cliffs
+- Create efficient indexes for polymorphic collections
+- Use JSON_TRANSFORM for atomic updates
+- Measure and optimize performance
+- Make informed design decisions based on trade-offs
 
 **Key Principles:**
 1. **Access patterns first** - Design for how data is queried, not how it's structured
@@ -1001,11 +616,10 @@ Congratulations! You have completed the Oracle JSON Collections Document Modelin
 - Apply these patterns to your own applications
 - Benchmark your specific workloads
 - Share learnings with your team
-- Contribute feedback to improve this workshop
 
 ## Learn More
 
-* [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/)
+* [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/)
 * [AWS DynamoDB Advanced Design Patterns](https://aws.amazon.com/dynamodb/resources/)
 * [MongoDB Data Modeling Patterns](https://www.mongodb.com/docs/manual/data-modeling/)
 
@@ -1013,10 +627,4 @@ Congratulations! You have completed the Oracle JSON Collections Document Modelin
 
 * **Author** - Rick Houlihan
 * **Contributors** - MongoDB Data Modeling Team, AWS DynamoDB Team
-* **Last Updated By/Date** - November 2024
-
----
-
-**Thank you for completing this workshop!** 🎉
-
-We hope you found it valuable. Please provide feedback to help us improve future workshops.
+* **Last Updated By/Date** - November 2025

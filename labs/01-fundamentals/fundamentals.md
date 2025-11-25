@@ -2,9 +2,9 @@
 
 ## Introduction
 
-This lab introduces you to Oracle JSON Collections, teaching you how to create collections, insert documents, query data, and understand Oracle's OSON (Oracle Optimized Binary JSON) format. You will work with both SQL/JSON functions and the MongoDB-compatible API.
+This lab introduces you to Oracle JSON Collection Tables, teaching you how to create collections, insert documents, query data, and understand Oracle's OSON (Oracle Optimized Binary JSON) format. You will work with both SQL/JSON functions and the MongoDB-compatible API.
 
-By the end of this lab, you will understand how Oracle JSON Collections provide the flexibility of NoSQL with the power and reliability of Oracle Database.
+By the end of this lab, you will understand how Oracle JSON Collection Tables provide the flexibility of NoSQL with the power and reliability of Oracle Database.
 
 Estimated Time: 30 minutes
 
@@ -12,10 +12,10 @@ Estimated Time: 30 minutes
 
 In this lab, you will:
 
-* Create JSON collections using both SODA and SQL approaches
+* Create JSON Collection Tables using the `CREATE JSON COLLECTION TABLE` syntax
 * Insert JSON documents with various data types (strings, numbers, arrays, nested objects)
 * Query documents using JSON_VALUE, JSON_QUERY, and JSON_TABLE
-* Update and delete documents
+* Update and delete documents using JSON_MERGEPATCH and JSON_TRANSFORM
 * Understand OSON binary format and its performance implications
 * Create indexes on JSON data for query optimization
 * Compare SQL and MongoDB API syntax
@@ -26,98 +26,81 @@ In this lab, you will:
 This lab assumes you have:
 
 * Completed Lab 0: Setup
-* Access to Oracle Database as JSONUSER
+* Access to Oracle AI Database 26ai as JSONUSER
 * Basic understanding of JSON format
 
-## Task 1: Create JSON Collections
+## Task 1: Create JSON Collection Tables
 
-In Oracle Database, JSON collections can be created using SODA (Simple Oracle Document Access) or directly with SQL. Both approaches create optimized storage for JSON documents.
+Oracle AI Database 26ai introduces JSON Collection Tables - single-column tables optimized for JSON document storage.
 
-### Step 1: Create Collection Using SODA
+### Step 1: Create a Products Collection
 
-1. Create a products collection:
+1. Create the products collection:
 
    ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-   BEGIN
-     collection := DBMS_SODA.CREATE_COLLECTION('products');
-   END;
-   /
+   CREATE JSON COLLECTION TABLE products;
+   ```
+
+   **Expected output:**
+   ```
+   Table created.
    ```
 
 2. Verify the collection was created:
 
    ```sql
-   SELECT collection_name, table_name
-   FROM user_soda_collections;
+   SELECT collection_name, collection_type
+   FROM user_json_collections;
    ```
 
    Expected output:
    ```
-   COLLECTION_NAME    TABLE_NAME
-   ----------------   -----------
-   PRODUCTS           PRODUCTS
-   TEST_COLLECTION    TEST_COLLECTION
+   COLLECTION_NAME    COLLECTION_TYPE
+   ----------------   ---------------
+   PRODUCTS           TABLE
+   TEST_COLLECTION    TABLE
    ```
 
-3. Examine the underlying table structure:
+3. Examine the table structure:
 
    ```sql
    DESC products
    ```
 
-   You will see columns including:
-   - `ID` - Unique document identifier (system-generated)
-   - `JSON_DOCUMENT` - The actual JSON document stored in OSON format
-   - `VERSION` - Document version for optimistic locking
-   - `CREATED_ON` - Timestamp when document was created
-   - `LAST_MODIFIED` - Timestamp when document was last updated
-
-### Step 2: Create Collection Using SQL
-
-Alternatively, you can create a JSON collection using standard SQL:
-
-1. Create a customers table for JSON documents:
-
-   ```sql
-   CREATE TABLE customers (
-     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-     json_document JSON,
-     created_on TIMESTAMP DEFAULT SYSTIMESTAMP,
-     last_modified TIMESTAMP DEFAULT SYSTIMESTAMP
-   );
+   Output:
+   ```
+   Name   Null?    Type
+   ----   -----    ----
+   DATA            JSON
    ```
 
-   > **Note:** The `JSON` data type (introduced in Oracle 21c) provides automatic JSON validation and OSON storage
+   > **Key Point:** JSON Collection Tables have a single `DATA` column of type JSON. The database automatically injects an `_id` field into each document for identification.
 
-2. Create a trigger to update last_modified timestamp:
+### Step 2: Create a Customers Collection
+
+1. Create another collection for customers:
 
    ```sql
-   CREATE OR REPLACE TRIGGER customers_update_trigger
-   BEFORE UPDATE ON customers
-   FOR EACH ROW
-   BEGIN
-     :NEW.last_modified := SYSTIMESTAMP;
-   END;
-   /
+   CREATE JSON COLLECTION TABLE customers;
    ```
 
-### Step 3: Understanding the Differences
+### Step 3: Understanding JSON Collection Tables
 
-**SODA Approach:**
-- Simpler, MongoDB-like experience
-- Automatic ID generation and versioning
-- Built-in document management features
-- Best for: Pure document-centric applications
+**JSON Collection Tables in 26ai:**
+- Single `DATA` column of type JSON
+- Automatic `_id` generation (RAW type internally)
+- Support for partitioning (lifecycle management, RAC performance)
+- Full SQL/JSON query capabilities
+- MongoDB API compatible
 
-**SQL Approach:**
-- More control over table structure
-- Can add custom columns and constraints
-- Full SQL capabilities (triggers, constraints, partitioning)
-- Best for: Applications mixing relational and document data
+**Querying collection metadata:**
+```sql
+-- View all JSON collections in your schema
+SELECT * FROM user_json_collections;
 
-Both approaches use OSON format and provide identical query performance.
+-- View only JSON Collection Tables
+SELECT * FROM user_json_collection_tables;
+```
 
 ## Task 2: Insert JSON Documents
 
@@ -127,10 +110,8 @@ Let's populate our collections with sample data representing an e-commerce produ
 
 1. Insert a product document:
 
-   if type="sql"
-
    ```sql
-   INSERT INTO products (json_document)
+   INSERT INTO products (data)
    VALUES (
      JSON_OBJECT(
        '_id' VALUE 'PROD-001',
@@ -154,63 +135,18 @@ Let's populate our collections with sample data representing an e-commerce produ
        )
      )
    );
+
+   COMMIT;
    ```
-
-   /if
-
-   if type="soda"
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('products');
-
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "PROD-001",
-           "name": "Wireless Bluetooth Headphones",
-           "category": "Electronics",
-           "brand": "AudioTech",
-           "price": 79.99,
-           "currency": "USD",
-           "in_stock": true,
-           "quantity": 45,
-           "tags": ["wireless", "bluetooth", "audio", "headphones"],
-           "specifications": {
-             "color": "Black",
-             "weight_oz": 8.5,
-             "battery_hours": 30,
-             "bluetooth_version": "5.0"
-           },
-           "rating": {
-             "average": 4.5,
-             "count": 127
-           }
-         }')
-       )
-     );
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE('1 row created.');
-     END IF;
-   END;
-   /
-   ```
-
-   /if
 
    **MongoDB API Approach:**
 
-   if type="mongodb"
-
    ```javascript
    // Connect to Oracle using MongoDB API (via ORDS)
-   // mongosh "mongodb://user:password@localhost:27017/mydb"
+   // Note: MongoDB API requires ACL configuration on Autonomous Database
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/jsonuser?authMechanism=PLAIN&authSource=$external&tls=false"
 
-   use mydb
+   use jsonuser
 
    // Insert document using MongoDB syntax
    db.products.insertOne({
@@ -246,16 +182,13 @@ Let's populate our collections with sample data representing an e-commerce produ
 
    > **Note:** MongoDB API allows you to use familiar MongoDB syntax and tools (mongosh, MongoDB Compass) to work with Oracle Database.
 
-   /if
-
    **REST API Approach:**
-
-   if type="rest"
 
    ```bash
    # Insert document via ORDS SODA REST API
+   # Prerequisite: Schema must be REST-enabled (EXEC ORDS.ENABLE_SCHEMA;)
    curl -X POST \
-     http://localhost:8080/ords/mydb/_soda/latest/products \
+     http://localhost:8080/ords/jsonuser/soda/latest/products \
      -H 'Content-Type: application/json' \
      -d '{
        "_id": "PROD-001",
@@ -285,35 +218,28 @@ Let's populate our collections with sample data representing an e-commerce produ
    {
      "id": "PROD-001",
      "etag": "...",
-     "lastModified": "2024-11-20T12:30:45.123Z"
+     "lastModified": "2025-11-20T12:30:45.123Z"
    }
    ```
 
    > **Note:** REST API enables web and mobile applications to interact with JSON Collections over HTTP.
 
-   /if
-
    **Python Approach:**
-
-   if type="python"
 
    ```python
    import oracledb
+   import json
 
    # Connect to Oracle Database
    connection = oracledb.connect(
-       user="myuser",
-       password="mypass",
-       dsn="localhost/FREEPDB1"
+       user="jsonuser",
+       password="WelcomeJson#123",
+       dsn="localhost:1522/myatp_low"
    )
 
-   # Get SODA database handle
-   soda = connection.getSodaDatabase()
+   cursor = connection.cursor()
 
-   # Create or open collection
-   collection = soda.createCollection("products")
-
-   # Insert document
+   # Insert document using SQL
    doc = {
        "_id": "PROD-001",
        "name": "Wireless Bluetooth Headphones",
@@ -336,30 +262,35 @@ Let's populate our collections with sample data representing an e-commerce produ
        }
    }
 
-   inserted_doc = collection.insertOne(doc)
-   print(f"1 row created. Document key: {inserted_doc.key}")
+   cursor.execute(
+       "INSERT INTO products (data) VALUES (:1)",
+       [json.dumps(doc)]
+   )
 
    connection.commit()
+   print("1 row created.")
    connection.close()
    ```
 
    Expected output:
    ```
-   1 row created. Document key: PROD-001
+   1 row created.
    ```
 
-   > **Note:** Python's python-oracledb driver provides native SODA support for data science and Python applications.
+   > **Note:** Python's python-oracledb driver provides native JSON support for data science and Python applications.
 
-   /if
+2. Insert additional products (individual INSERT statements):
 
-2. Insert multiple products:
-
-   if type="sql"
+   > **Note on `_id` values:**
+   > - Custom `_id` values (strings like 'PROD-001') are fully supported
+   > - Essential for composite key patterns (e.g., 'CUSTOMER#123#ORDER#456')
+   > - If omitted, database auto-generates a RAW-based `_id`
+   > - Once set, `_id` cannot be changed (immutable)
 
    ```sql
-   INSERT INTO products (json_document)
-   VALUES
-   (JSON_OBJECT(
+   -- Insert PROD-002
+   INSERT INTO products (data)
+   VALUES (JSON_OBJECT(
      '_id' VALUE 'PROD-002',
      'name' VALUE 'Ergonomic Wireless Mouse',
      'category' VALUE 'Electronics',
@@ -379,8 +310,11 @@ Let's populate our collections with sample data representing an e-commerce produ
        'average' VALUE 4.7,
        'count' VALUE 342
      )
-   )),
-   (JSON_OBJECT(
+   ));
+
+   -- Insert PROD-003
+   INSERT INTO products (data)
+   VALUES (JSON_OBJECT(
      '_id' VALUE 'PROD-003',
      'name' VALUE 'Mechanical Gaming Keyboard',
      'category' VALUE 'Electronics',
@@ -400,8 +334,11 @@ Let's populate our collections with sample data representing an e-commerce produ
        'average' VALUE 4.8,
        'count' VALUE 891
      )
-   )),
-   (JSON_OBJECT(
+   ));
+
+   -- Insert PROD-004
+   INSERT INTO products (data)
+   VALUES (JSON_OBJECT(
      '_id' VALUE 'PROD-004',
      'name' VALUE '27-inch 4K Monitor',
      'category' VALUE 'Electronics',
@@ -426,111 +363,6 @@ Let's populate our collections with sample data representing an e-commerce produ
    COMMIT;
    ```
 
-   /if
-
-   if type="soda"
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-     total_inserted NUMBER := 0;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('products');
-
-     -- Insert PROD-002
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "PROD-002",
-           "name": "Ergonomic Wireless Mouse",
-           "category": "Electronics",
-           "brand": "TechComfort",
-           "price": 34.99,
-           "currency": "USD",
-           "in_stock": true,
-           "quantity": 120,
-           "tags": ["wireless", "ergonomic", "mouse", "computer"],
-           "specifications": {
-             "color": "Silver",
-             "dpi": 1600,
-             "buttons": 6,
-             "battery_months": 18
-           },
-           "rating": {
-             "average": 4.7,
-             "count": 342
-           }
-         }')
-       )
-     );
-     total_inserted := total_inserted + status;
-
-     -- Insert PROD-003
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "PROD-003",
-           "name": "Mechanical Gaming Keyboard",
-           "category": "Electronics",
-           "brand": "GamePro",
-           "price": 129.99,
-           "currency": "USD",
-           "in_stock": true,
-           "quantity": 67,
-           "tags": ["mechanical", "gaming", "keyboard", "rgb"],
-           "specifications": {
-             "switch_type": "Cherry MX Red",
-             "rgb_lighting": true,
-             "keys": 104,
-             "wired": true
-           },
-           "rating": {
-             "average": 4.8,
-             "count": 891
-           }
-         }')
-       )
-     );
-     total_inserted := total_inserted + status;
-
-     -- Insert PROD-004
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "PROD-004",
-           "name": "27-inch 4K Monitor",
-           "category": "Electronics",
-           "brand": "ViewPerfect",
-           "price": 449.99,
-           "currency": "USD",
-           "in_stock": false,
-           "quantity": 0,
-           "tags": ["monitor", "4k", "display", "gaming"],
-           "specifications": {
-             "screen_size": "27 inch",
-             "resolution": "3840x2160",
-             "refresh_rate": 144,
-             "panel_type": "IPS"
-           },
-           "rating": {
-             "average": 4.6,
-             "count": 234
-           }
-         }')
-       )
-     );
-     total_inserted := total_inserted + status;
-
-     DBMS_OUTPUT.PUT_LINE(total_inserted || ' rows created.');
-     DBMS_OUTPUT.PUT_LINE('');
-     DBMS_OUTPUT.PUT_LINE('Commit complete.');
-   END;
-   /
-   ```
-
-   /if
-
 3. Verify the products were inserted:
 
    ```sql
@@ -545,10 +377,8 @@ You can also insert JSON documents as raw JSON strings:
 
 1. Insert a customer document:
 
-   if type="sql"
-
    ```sql
-   INSERT INTO customers (json_document)
+   INSERT INTO customers (data)
    VALUES ('{
      "_id": "CUST-001",
      "name": "Alice Johnson",
@@ -572,91 +402,15 @@ You can also insert JSON documents as raw JSON strings:
    COMMIT;
    ```
 
-   /if
-
-   if type="soda"
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('customers');
-
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "CUST-001",
-           "name": "Alice Johnson",
-           "email": "alice.johnson@email.com",
-           "phone": "+1-555-0123",
-           "address": {
-             "street": "123 Main Street",
-             "city": "San Francisco",
-             "state": "CA",
-             "zip": "94105",
-             "country": "USA"
-           },
-           "preferences": {
-             "newsletter": true,
-             "notifications": "email"
-           },
-           "loyalty_points": 1250,
-           "member_since": "2023-03-15"
-         }')
-       )
-     );
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE('1 row created.');
-       DBMS_OUTPUT.PUT_LINE('');
-       DBMS_OUTPUT.PUT_LINE('Commit complete.');
-     END IF;
-   END;
-   /
-   ```
-
-   /if
-
 2. Insert another customer:
 
-   if type="sql"
-
    ```sql
-   INSERT INTO customers (json_document) VALUES (
+   INSERT INTO customers (data) VALUES (
      '{"_id": "CUST-002", "name": "Bob Martinez", "email": "bob.m@email.com", "phone": "+1-555-0124", "address": {"street": "456 Oak Avenue", "city": "Austin", "state": "TX", "zip": "78701", "country": "USA"}, "preferences": {"newsletter": false, "notifications": "sms"}, "loyalty_points": 890, "member_since": "2023-06-22"}'
    );
 
    COMMIT;
    ```
-
-   /if
-
-   if type="soda"
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('customers');
-
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{"_id": "CUST-002", "name": "Bob Martinez", "email": "bob.m@email.com", "phone": "+1-555-0124", "address": {"street": "456 Oak Avenue", "city": "Austin", "state": "TX", "zip": "78701", "country": "USA"}, "preferences": {"newsletter": false, "notifications": "sms"}, "loyalty_points": 890, "member_since": "2023-06-22"}')
-       )
-     );
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE('1 row created.');
-       DBMS_OUTPUT.PUT_LINE('');
-       DBMS_OUTPUT.PUT_LINE('Commit complete.');
-     END IF;
-   END;
-   /
-   ```
-
-   /if
 
 ## Task 3: Query JSON Documents
 
@@ -670,9 +424,9 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$._id') AS product_id,
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_VALUE(json_document, '$.price' RETURNING NUMBER) AS price
+     JSON_VALUE(data, '$._id') AS product_id,
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_VALUE(data, '$.price' RETURNING NUMBER) AS price
    FROM products
    ORDER BY price;
    ```
@@ -689,16 +443,14 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
 2. Filter products by category and availability:
 
-   if type="sql"
-
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_VALUE(json_document, '$.price' RETURNING NUMBER) AS price,
-     JSON_VALUE(json_document, '$.quantity' RETURNING NUMBER) AS quantity
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_VALUE(data, '$.price' RETURNING NUMBER) AS price,
+     JSON_VALUE(data, '$.quantity' RETURNING NUMBER) AS quantity
    FROM products
-   WHERE JSON_VALUE(json_document, '$.category') = 'Electronics'
-     AND JSON_VALUE(json_document, '$.in_stock' RETURNING VARCHAR2) = 'true'
+   WHERE JSON_VALUE(data, '$.category') = 'Electronics'
+     AND JSON_VALUE(data, '$.in_stock' RETURNING VARCHAR2) = 'true'
    ORDER BY price;
    ```
 
@@ -711,67 +463,13 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
    Mechanical Gaming Keyboard       129.99        67
    ```
 
-   /if
-
-   if type="soda"
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     cursor SODA_CURSOR_T;
-     doc SODA_DOCUMENT_T;
-     doc_content CLOB;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('products');
-
-     -- Find products by category and in_stock status
-     cursor := collection.find()
-       .filter('{"category": "Electronics", "in_stock": true}')
-       .getCursor();
-
-     DBMS_OUTPUT.PUT_LINE('Filtered Products (category=Electronics, in_stock=true):');
-     DBMS_OUTPUT.PUT_LINE('-----------------------------------------------------------');
-
-     LOOP
-       IF cursor.has_next() THEN
-         doc := cursor.next();
-         doc_content := doc.get_clob();
-
-         -- Extract and display specific fields
-         DBMS_OUTPUT.PUT_LINE('Product: ' ||
-           JSON_VALUE(doc_content, '$.name') || ', Price: $' ||
-           JSON_VALUE(doc_content, '$.price') || ', Qty: ' ||
-           JSON_VALUE(doc_content, '$.quantity'));
-       ELSE
-         EXIT;
-       END IF;
-     END LOOP;
-
-     cursor.close();
-   END;
-   /
-   ```
-
-   Expected output:
-   ```
-   Filtered Products (category=Electronics, in_stock=true):
-   -----------------------------------------------------------
-   Product: Wireless Bluetooth Headphones, Price: $79.99, Qty: 45
-   Product: Ergonomic Wireless Mouse, Price: $34.99, Qty: 120
-   Product: Mechanical Gaming Keyboard, Price: $129.99, Qty: 67
-   ```
-
-   > **Note:** SODA's `filter()` method uses MongoDB-style query syntax for filtering documents.
-
-   /if
-
-   if type="mongodb"
+   **MongoDB API Approach:**
 
    ```javascript
    // Connect to Oracle using MongoDB API
-   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/jsonuser?authMechanism=PLAIN&authSource=$external&tls=false"
 
-   use mydb
+   use jsonuser
 
    // Find products by category and in_stock status
    db.products.find(
@@ -814,9 +512,7 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
    > **MongoDB API**: Use familiar MongoDB query syntax with Oracle Database. The `find()` method accepts filter criteria and projection fields.
 
-   /if
-
-   if type="rest"
+   **REST API Approach:**
 
    ```bash
    # Query products using ORDS SODA REST API with QBE (Query By Example)
@@ -870,49 +566,36 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
    > **REST API**: Use QBE (Query By Example) syntax with `$query`, `$orderby`, and `$fields` operators via HTTP POST.
 
-   /if
-
-   if type="python"
+   **Python Approach:**
 
    ```python
    import oracledb
-   import json
 
    connection = oracledb.connect(
        user="jsonuser",
        password="WelcomeJson#123",
-       dsn="localhost/FREEPDB1"
+       dsn="localhost:1522/myatp_low"
    )
 
-   soda = connection.getSodaDatabase()
-   collection = soda.openCollection("products")
+   cursor = connection.cursor()
 
    # Find products by category and in_stock status
-   filter_spec = {
-       "category": "Electronics",
-       "in_stock": True
-   }
-
-   documents = collection.find().filter(filter_spec).getDocuments()
+   cursor.execute("""
+       SELECT
+         JSON_VALUE(data, '$.name') AS product_name,
+         JSON_VALUE(data, '$.price' RETURNING NUMBER) AS price,
+         JSON_VALUE(data, '$.quantity' RETURNING NUMBER) AS quantity
+       FROM products
+       WHERE JSON_VALUE(data, '$.category') = 'Electronics'
+         AND JSON_VALUE(data, '$.in_stock' RETURNING VARCHAR2) = 'true'
+       ORDER BY price
+   """)
 
    print("Filtered Products (category=Electronics, in_stock=true):")
    print("-" * 60)
 
-   # Extract and sort by price
-   products = []
-   for doc in documents:
-       content = doc.getContent()
-       products.append({
-           'name': content['name'],
-           'price': content['price'],
-           'quantity': content['quantity']
-       })
-
-   # Sort by price
-   products.sort(key=lambda x: x['price'])
-
-   for p in products:
-       print(f"Product: {p['name']}, Price: ${p['price']}, Qty: {p['quantity']}")
+   for row in cursor:
+       print(f"Product: {row[0]}, Price: ${row[1]}, Qty: {row[2]}")
 
    connection.close()
    ```
@@ -926,19 +609,17 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
    Product: Mechanical Gaming Keyboard, Price: $129.99, Qty: 67
    ```
 
-   > **Python**: The `filter()` method accepts Python dictionaries for filtering, making it natural for Python developers.
-
-   /if
+   > **Python**: Use standard SQL/JSON syntax with parameterized queries for Python applications.
 
 3. Extract nested values:
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_VALUE(json_document, '$.specifications.color') AS color,
-     JSON_VALUE(json_document, '$.rating.average' RETURNING NUMBER) AS rating
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_VALUE(data, '$.specifications.color') AS color,
+     JSON_VALUE(data, '$.rating.average' RETURNING NUMBER) AS rating
    FROM products
-   WHERE JSON_VALUE(json_document, '$.rating.average' RETURNING NUMBER) >= 4.5
+   WHERE JSON_VALUE(data, '$.rating.average' RETURNING NUMBER) >= 4.5
    ORDER BY rating DESC;
    ```
 
@@ -950,8 +631,8 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_QUERY(json_document, '$.specifications') AS specifications
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_QUERY(data, '$.specifications') AS specifications
    FROM products;
    ```
 
@@ -959,8 +640,8 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_QUERY(json_document, '$.tags') AS tags
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_QUERY(data, '$.tags') AS tags
    FROM products;
    ```
 
@@ -968,10 +649,10 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$._id') AS id,
-     JSON_SERIALIZE(json_document PRETTY) AS document
+     JSON_VALUE(data, '$._id') AS id,
+     JSON_SERIALIZE(data PRETTY) AS document
    FROM products
-   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-001';
+   WHERE JSON_VALUE(data, '$._id') = 'PROD-001';
    ```
 
 ### Step 3: Query with JSON_TABLE (Convert JSON to Relational Rows)
@@ -982,10 +663,10 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
    ```sql
    SELECT
-     JSON_VALUE(p.json_document, '$.name') AS product_name,
+     JSON_VALUE(p.data, '$.name') AS product_name,
      jt.tag
    FROM products p,
-     JSON_TABLE(p.json_document, '$.tags[*]'
+     JSON_TABLE(p.data, '$.tags[*]'
        COLUMNS (
          tag VARCHAR2(50) PATH '$'
        )
@@ -1012,7 +693,7 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
    SELECT
      jt.*
    FROM products p,
-     JSON_TABLE(p.json_document, '$'
+     JSON_TABLE(p.data, '$'
        COLUMNS (
          product_id VARCHAR2(20) PATH '$._id',
          product_name VARCHAR2(100) PATH '$.name',
@@ -1036,19 +717,19 @@ Oracle provides powerful SQL/JSON functions to query JSON data. Let's explore th
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_VALUE(json_document, '$.specifications.bluetooth_version') AS bluetooth
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_VALUE(data, '$.specifications.bluetooth_version') AS bluetooth
    FROM products
-   WHERE JSON_EXISTS(json_document, '$.specifications.bluetooth_version');
+   WHERE JSON_EXISTS(data, '$.specifications.bluetooth_version');
    ```
 
 2. Find products with RGB lighting:
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name
+     JSON_VALUE(data, '$.name') AS product_name
    FROM products
-   WHERE JSON_EXISTS(json_document, '$.specifications.rgb_lighting');
+   WHERE JSON_EXISTS(data, '$.specifications.rgb_lighting');
    ```
 
 ## Task 4: Update JSON Documents
@@ -1059,11 +740,9 @@ Oracle provides multiple ways to update JSON documents.
 
 1. Replace an entire document:
 
-   if type="sql"
-
    ```sql
    UPDATE products
-   SET json_document = JSON_OBJECT(
+   SET data = JSON_OBJECT(
      '_id' VALUE 'PROD-004',
      'name' VALUE '27-inch 4K Monitor',
      'category' VALUE 'Electronics',
@@ -1084,68 +763,18 @@ Oracle provides multiple ways to update JSON documents.
        'count' VALUE 234
      )
    )
-   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-004';
+   WHERE JSON_VALUE(data, '$._id') = 'PROD-004';
 
    COMMIT;
    ```
 
-   /if
-
-   if type="soda"
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     doc SODA_DOCUMENT_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('products');
-
-     -- Find and replace by key using QBE
-     status := collection.find().key('PROD-004').replace_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "PROD-004",
-           "name": "27-inch 4K Monitor",
-           "category": "Electronics",
-           "brand": "ViewPerfect",
-           "price": 449.99,
-           "currency": "USD",
-           "in_stock": true,
-           "quantity": 15,
-           "tags": ["monitor", "4k", "display", "gaming"],
-           "specifications": {
-             "screen_size": "27 inch",
-             "resolution": "3840x2160",
-             "refresh_rate": 144,
-             "panel_type": "IPS"
-           },
-           "rating": {
-             "average": 4.6,
-             "count": 234
-           }
-         }')
-       )
-     );
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE('1 row updated.');
-       DBMS_OUTPUT.PUT_LINE('');
-       DBMS_OUTPUT.PUT_LINE('Commit complete.');
-     END IF;
-   END;
-   /
-   ```
-
-   /if
-
-   if type="mongodb"
+   **MongoDB API Approach:**
 
    ```javascript
    // Connect to Oracle using MongoDB API
-   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/jsonuser?authMechanism=PLAIN&authSource=$external&tls=false"
 
-   use mydb
+   use jsonuser
 
    // Update document by _id - restore product to stock
    db.products.updateOne(
@@ -1170,9 +799,7 @@ Oracle provides multiple ways to update JSON documents.
 
    > **MongoDB API**: Use the `updateOne()` method with `$set` operator to update specific fields. Oracle supports standard MongoDB update operators.
 
-   /if
-
-   if type="rest"
+   **REST API Approach:**
 
    ```bash
    # Update document using ORDS SODA REST API
@@ -1214,29 +841,27 @@ Oracle provides multiple ways to update JSON documents.
    {
      "id": "...",
      "etag": "...",
-     "lastModified": "2024-01-15T10:30:00.000Z"
+     "lastModified": "2025-01-15T10:30:00.000Z"
    }
    ```
 
    > **REST API**: Use HTTP PUT to replace entire documents. The `If-Match` header with the document's etag ensures optimistic locking.
 
-   /if
-
-   if type="python"
+   **Python Approach:**
 
    ```python
    import oracledb
+   import json
 
    connection = oracledb.connect(
        user="jsonuser",
        password="WelcomeJson#123",
-       dsn="localhost/FREEPDB1"
+       dsn="localhost:1522/myatp_low"
    )
 
-   soda = connection.getSodaDatabase()
-   collection = soda.openCollection("products")
+   cursor = connection.cursor()
 
-   # Find the document by key and update it
+   # Update document using SQL
    updated_doc = {
        "_id": "PROD-004",
        "name": "27-inch 4K Monitor",
@@ -1259,39 +884,33 @@ Oracle provides multiple ways to update JSON documents.
        }
    }
 
-   # Replace the document
-   result = collection.find().key("PROD-004").replaceOne(updated_doc)
+   cursor.execute("""
+       UPDATE products
+       SET data = :1
+       WHERE JSON_VALUE(data, '$._id') = 'PROD-004'
+   """, [json.dumps(updated_doc)])
 
-   if result and result.getContent():
-       print("1 row updated.")
-       connection.commit()
-       print("\nCommit complete.")
-   else:
-       print("Document not found or update failed.")
-
+   connection.commit()
+   print("1 row updated.")
    connection.close()
    ```
 
    Expected output:
    ```
    1 row updated.
-
-   Commit complete.
    ```
 
-   > **Python**: Use `replaceOne()` to replace the entire document. The method returns the updated document object.
-
-   /if
+   > **Python**: Use parameterized SQL for safe document updates.
 
 2. Verify the update:
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product,
-     JSON_VALUE(json_document, '$.in_stock') AS in_stock,
-     JSON_VALUE(json_document, '$.quantity') AS quantity
+     JSON_VALUE(data, '$.name') AS product,
+     JSON_VALUE(data, '$.in_stock') AS in_stock,
+     JSON_VALUE(data, '$.quantity') AS quantity
    FROM products
-   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-004';
+   WHERE JSON_VALUE(data, '$._id') = 'PROD-004';
    ```
 
 ### Step 2: Update Specific Fields with JSON_MERGEPATCH
@@ -1300,69 +919,26 @@ Oracle provides multiple ways to update JSON documents.
 
 1. Update product price and quantity:
 
-   if type="sql"
-
    ```sql
    UPDATE products
-   SET json_document = JSON_MERGEPATCH(
-     json_document,
+   SET data = JSON_MERGEPATCH(
+     data,
      '{"price": 69.99, "quantity": 38}'
    )
-   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-001';
+   WHERE JSON_VALUE(data, '$._id') = 'PROD-001';
 
    COMMIT;
    ```
-
-   /if
-
-   if type="soda"
-
-   > **Note:** SODA doesn't have a direct equivalent to JSON_MERGEPATCH. You need to fetch the document, merge the changes, and replace it.
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     doc SODA_DOCUMENT_T;
-     doc_content CLOB;
-     merged_content CLOB;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('products');
-
-     -- Get the existing document
-     doc := collection.find().key('PROD-001').get_one();
-     doc_content := doc.get_clob();
-
-     -- Merge the patch (using JSON_MERGEPATCH in SQL)
-     SELECT JSON_MERGEPATCH(doc_content, '{"price": 69.99, "quantity": 38}')
-     INTO merged_content
-     FROM DUAL;
-
-     -- Replace with merged document
-     status := collection.find().key('PROD-001').replace_one(
-       SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
-     );
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE('1 row updated.');
-       DBMS_OUTPUT.PUT_LINE('');
-       DBMS_OUTPUT.PUT_LINE('Commit complete.');
-     END IF;
-   END;
-   /
-   ```
-
-   /if
 
 2. Verify the update:
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product,
-     JSON_VALUE(json_document, '$.price') AS price,
-     JSON_VALUE(json_document, '$.quantity') AS quantity
+     JSON_VALUE(data, '$.name') AS product,
+     JSON_VALUE(data, '$.price') AS price,
+     JSON_VALUE(data, '$.quantity') AS quantity
    FROM products
-   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-001';
+   WHERE JSON_VALUE(data, '$._id') = 'PROD-001';
    ```
 
    Expected output shows updated price (69.99) and quantity (38)
@@ -1373,11 +949,11 @@ Oracle provides multiple ways to update JSON documents.
 
    ```sql
    UPDATE products
-   SET json_document = JSON_MERGEPATCH(
-     json_document,
+   SET data = JSON_MERGEPATCH(
+     data,
      '{"specifications": {"battery_hours": 40}}'
    )
-   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-001';
+   WHERE JSON_VALUE(data, '$._id') = 'PROD-001';
 
    COMMIT;
    ```
@@ -1388,11 +964,99 @@ Oracle provides multiple ways to update JSON documents.
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product,
-     JSON_QUERY(json_document, '$.specifications' PRETTY) AS specs
+     JSON_VALUE(data, '$.name') AS product,
+     JSON_QUERY(data, '$.specifications') AS specs
    FROM products
-   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-001';
+   WHERE JSON_VALUE(data, '$._id') = 'PROD-001';
    ```
+
+   > **Note:** Use `JSON_SERIALIZE(data PRETTY)` to pretty-print entire documents. `JSON_QUERY` does not support the PRETTY option.
+
+### Step 4: Update with JSON_TRANSFORM (Recommended)
+
+`JSON_TRANSFORM` is the most powerful method for modifying JSON documents, offering fine-grained control over updates.
+
+1. Update a single field:
+
+   ```sql
+   UPDATE products
+   SET data = JSON_TRANSFORM(data, SET '$.price' = 64.99)
+   WHERE JSON_VALUE(data, '$.name') = 'Wireless Bluetooth Headphones';
+
+   COMMIT;
+   ```
+
+2. Update multiple fields at once:
+
+   ```sql
+   UPDATE products
+   SET data = JSON_TRANSFORM(
+     data,
+     SET '$.price' = 59.99,
+     SET '$.quantity' = 100,
+     SET '$.specifications.battery_hours' = 35
+   )
+   WHERE JSON_VALUE(data, '$.name') = 'Wireless Bluetooth Headphones';
+
+   COMMIT;
+   ```
+
+3. Add a new field:
+
+   ```sql
+   UPDATE products
+   SET data = JSON_TRANSFORM(data, SET '$.on_sale' = true)
+   WHERE JSON_VALUE(data, '$.name') = 'Wireless Bluetooth Headphones';
+
+   COMMIT;
+   ```
+
+4. Remove a field:
+
+   ```sql
+   UPDATE products
+   SET data = JSON_TRANSFORM(data, REMOVE '$.on_sale')
+   WHERE JSON_VALUE(data, '$.name') = 'Wireless Bluetooth Headphones';
+
+   COMMIT;
+   ```
+
+5. Append to an array:
+
+   ```sql
+   UPDATE products
+   SET data = JSON_TRANSFORM(data, APPEND '$.tags' = 'premium')
+   WHERE JSON_VALUE(data, '$.name') = 'Wireless Bluetooth Headphones';
+
+   COMMIT;
+   ```
+
+6. Conditional updates (26ai):
+
+   ```sql
+   -- Add 10% to all products over $100
+   UPDATE products
+   SET data = JSON_TRANSFORM(
+     data,
+     SET '$.price' = JSON_VALUE(data, '$.price' RETURNING NUMBER) * 1.10
+   )
+   WHERE JSON_VALUE(data, '$.price' RETURNING NUMBER) > 100;
+
+   COMMIT;
+   ```
+
+**JSON_TRANSFORM vs JSON_MERGEPATCH:**
+
+| Feature | JSON_TRANSFORM | JSON_MERGEPATCH |
+|---------|----------------|-----------------|
+| Add fields | SET | Merge semantics |
+| Remove fields | REMOVE | Set to null |
+| Update nested | Path expressions | Merge semantics |
+| Array operations | APPEND, PREPEND, SORT | Replaces entire array |
+| Conditional | CASE, WHERE | Not available |
+| Arithmetic | Path expressions | Not available |
+
+> **Recommendation:** Use `JSON_TRANSFORM` for most update operations. It provides more control and better handles edge cases with arrays and nested structures.
 
 ## Task 5: Create Indexes on JSON Data
 
@@ -1404,14 +1068,14 @@ Indexes dramatically improve query performance on JSON collections.
 
    ```sql
    CREATE INDEX idx_products_category
-   ON products (JSON_VALUE(json_document, '$.category'));
+   ON products (JSON_VALUE(data, '$.category'));
    ```
 
 2. Create an index on price:
 
    ```sql
    CREATE INDEX idx_products_price
-   ON products (JSON_VALUE(json_document, '$.price' RETURNING NUMBER));
+   ON products (JSON_VALUE(data, '$.price' RETURNING NUMBER));
    ```
 
 3. Query using the index:
@@ -1419,40 +1083,44 @@ Indexes dramatically improve query performance on JSON collections.
    ```sql
    -- This query will use idx_products_category
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_VALUE(json_document, '$.price') AS price
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_VALUE(data, '$.price') AS price
    FROM products
-   WHERE JSON_VALUE(json_document, '$.category') = 'Electronics';
+   WHERE JSON_VALUE(data, '$.category') = 'Electronics';
    ```
 
 ### Step 2: Create Multivalue Index on Array
 
-Multivalue indexes (Oracle 21c+) enable efficient queries on array values.
+Multivalue indexes enable efficient queries on array values.
 
 1. Create multivalue index on tags array:
 
    ```sql
    CREATE MULTIVALUE INDEX idx_products_tags
-   ON products (JSON_VALUE(json_document, '$.tags[*]' RETURNING VARCHAR2(50)));
+   ON products p (p.data.tags.string());
    ```
+
+   > **Note:** Multivalue indexes use dot-notation syntax to access array elements.
 
 2. Query products by tag using the index:
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_QUERY(json_document, '$.tags') AS tags
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_QUERY(data, '$.tags') AS tags
    FROM products
-   WHERE JSON_VALUE(json_document, '$.tags[*]' RETURNING VARCHAR2(50)) = 'wireless';
+   WHERE JSON_EXISTS(data, '$.tags[*]?(@ == "wireless")');
    ```
 
    Expected output:
    ```
    PRODUCT_NAME                      TAGS
-   ------------------------------   -----------------------------------
-   Wireless Bluetooth Headphones    ["wireless","bluetooth","audio"...]
-   Ergonomic Wireless Mouse         ["wireless","ergonomic","mouse"...]
+   ------------------------------   ------------------------------------------------
+   Wireless Bluetooth Headphones    ["wireless","bluetooth","audio","headphones"]
+   Ergonomic Wireless Mouse         ["wireless","ergonomic","mouse","computer"]
    ```
+
+   > **Note:** Use `JSON_EXISTS` with a filter expression `?(@ == "value")` to query array elements.
 
 ### Step 3: Create JSON Search Index (Full-Text + Structural)
 
@@ -1462,7 +1130,7 @@ JSON Search indexes enable both full-text and structural queries.
 
    ```sql
    CREATE SEARCH INDEX idx_products_search
-   ON products (json_document)
+   ON products (data)
    FOR JSON;
    ```
 
@@ -1470,10 +1138,10 @@ JSON Search indexes enable both full-text and structural queries.
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_VALUE(json_document, '$.price') AS price
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_VALUE(data, '$.price') AS price
    FROM products
-   WHERE JSON_TEXTCONTAINS(json_document, '$', 'gaming');
+   WHERE JSON_TEXTCONTAINS(data, '$', 'gaming');
    ```
 
 ## Task 6: Understand OSON Format and Performance
@@ -1486,14 +1154,12 @@ OSON (Oracle Optimized Binary JSON) is Oracle's internal binary format for JSON 
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$._id') AS product_id,
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     LENGTHB(json_document) AS oson_bytes,
+     JSON_VALUE(data, '$._id') AS product_id,
+     JSON_VALUE(data, '$.name') AS product_name,
+     LENGTHB(data) AS oson_bytes,
      CASE
-       WHEN LENGTHB(json_document) < 7950 THEN 'INLINE (Fast)'
-       WHEN LENGTHB(json_document) < 10240 THEN 'LOB (OK)'
-       WHEN LENGTHB(json_document) < 102400 THEN 'LOB (Slower)'
-       ELSE 'LOB (Avoid if possible)'
+       WHEN LENGTHB(data) < 7950 THEN 'INLINE (Fast)'
+       ELSE 'OUT-OF-LINE (Slower)'
      END AS storage_tier
    FROM products
    ORDER BY oson_bytes DESC;
@@ -1502,34 +1168,31 @@ OSON (Oracle Optimized Binary JSON) is Oracle's internal binary format for JSON 
    Expected output:
    ```
    PRODUCT_ID   PRODUCT_NAME                   OSON_BYTES   STORAGE_TIER
-   ----------   ---------------------------   ----------   -------------
-   PROD-003     Mechanical Gaming Keyboard          890    INLINE (Fast)
-   PROD-004     27-inch 4K Monitor                  850    INLINE (Fast)
-   PROD-001     Wireless Bluetooth Headphones       820    INLINE (Fast)
-   PROD-002     Ergonomic Wireless Mouse            780    INLINE (Fast)
+   ----------   ---------------------------   ----------   ----------------
+   PROD-001     Wireless Bluetooth Headphones       421    INLINE (Fast)
+   PROD-004     27-inch 4K Monitor                  402    INLINE (Fast)
+   PROD-003     Mechanical Gaming Keyboard          392    INLINE (Fast)
+   PROD-002     Ergonomic Wireless Mouse            391    INLINE (Fast)
    ```
 
-### Step 2: Understanding OSON Performance Tiers
+   > **Note:** Document sizes will vary based on actual content. OSON binary format is typically more compact than text JSON.
+
+### Step 2: Understanding OSON Storage
 
 **OSON Storage Tiers:**
 
-1. **Inline storage (< 7,950 bytes):**
-   - Stored directly in the table row
-   - Fastest query performance
-   - Best practice: Keep documents in this range
+1. **Inline storage (< ~7,950 bytes):**
+   - Document stored directly in the table row
+   - Single I/O operation to read
+   - **Best performance** - design documents to stay in this range
 
-2. **LOB storage (7,950 bytes - 32MB):**
-   - Stored in separate LOB segment
-   - Slower performance (additional I/O required)
-   - Acceptable for < 100KB documents
-   - Avoid documents over 10MB
+2. **Out-of-line/LOB storage (>= ~7,950 bytes):**
+   - Document stored in separate LOB segment
+   - Additional I/O required to fetch document
+   - Larger documents = more "clutter" when accessing specific fields
+   - **Maximum document size:** 32MB
 
-3. **Maximum document size: 32MB**
-   - Hard limit for OSON format
-   - Documents exceeding 32MB will fail to insert
-
-**Key Design Principle:**
-> Keep frequently queried documents under 7,950 bytes for optimal performance. Use patterns like Single Collection design to avoid bloated documents.
+> **Design Principle:** The performance difference between inline and out-of-line storage is significant. Once a document exceeds the inline threshold, additional size primarily affects how much unnecessary data is read when querying specific fields. Keep frequently-accessed documents under 7,950 bytes whenever possible.
 
 ### Step 3: Measure Query Performance
 
@@ -1544,10 +1207,10 @@ OSON (Oracle Optimized Binary JSON) is Oracle's internal binary format for JSON 
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$.name') AS product_name,
-     JSON_VALUE(json_document, '$.price') AS price
+     JSON_VALUE(data, '$.name') AS product_name,
+     JSON_VALUE(data, '$.price') AS price
    FROM products
-   WHERE JSON_VALUE(json_document, '$.category') = 'Electronics';
+   WHERE JSON_VALUE(data, '$.category') = 'Electronics';
    ```
 
 3. Review execution plan to verify index usage:
@@ -1568,6 +1231,17 @@ Oracle Database provides a MongoDB-compatible API for developers familiar with M
 ### MongoDB API Examples
 
 Here are equivalent operations using MongoDB syntax (requires Oracle Database API for MongoDB):
+
+> **Note:** MongoDB API requires ACL configuration on Autonomous Database. "Secure access from everywhere" will NOT allow MongoDB API access. You must configure an Access Control List (ACL) or use a private endpoint.
+
+**Connection String Format:**
+```javascript
+// For Autonomous Database with ACL configured:
+// mongosh "mongodb://user:password@host:27017/schema?authMechanism=PLAIN&authSource=$external&tls=true&tlsAllowInvalidCertificates=true"
+
+// For Docker (26ai Free):
+// mongosh "mongodb://user:password@localhost:27017/schema?authMechanism=PLAIN&authSource=$external&tls=false"
+```
 
 **Insert Document:**
 ```javascript
@@ -1611,11 +1285,9 @@ Oracle provides multiple ways to delete JSON documents from collections.
 
 1. Delete a single product by ID:
 
-   if type="sql"
-
    ```sql
    DELETE FROM products
-   WHERE JSON_VALUE(json_document, '$._id') = 'PROD-002';
+   WHERE JSON_VALUE(data, '$._id') = 'PROD-002';
 
    COMMIT;
    ```
@@ -1627,45 +1299,13 @@ Oracle provides multiple ways to delete JSON documents from collections.
    Commit complete.
    ```
 
-   /if
-
-   if type="soda"
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('products');
-
-     -- Delete document by key
-     status := collection.find().key('PROD-002').remove();
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE(status || ' document removed.');
-       DBMS_OUTPUT.PUT_LINE('');
-       DBMS_OUTPUT.PUT_LINE('Commit complete.');
-     END IF;
-   END;
-   /
-   ```
-
-   Expected output:
-   ```
-   1 document removed.
-
-   Commit complete.
-   ```
-
-   /if
-
-   if type="mongodb"
+   **MongoDB API Approach:**
 
    ```javascript
    // Connect to Oracle using MongoDB API
-   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/jsonuser?authMechanism=PLAIN&authSource=$external&tls=false"
 
-   use mydb
+   use jsonuser
 
    // Delete one document by _id
    db.products.deleteOne({ _id: "PROD-002" })
@@ -1681,9 +1321,7 @@ Oracle provides multiple ways to delete JSON documents from collections.
 
    > **MongoDB API**: Use `deleteOne()` for single document deletion. Returns the count of deleted documents.
 
-   /if
-
-   if type="rest"
+   **REST API Approach:**
 
    ```bash
    # Delete document using ORDS SODA REST API
@@ -1701,9 +1339,7 @@ Oracle provides multiple ways to delete JSON documents from collections.
 
    > **REST API**: Use HTTP DELETE with the document key. Returns status confirmation.
 
-   /if
-
-   if type="python"
+   **Python Approach:**
 
    ```python
    import oracledb
@@ -1711,32 +1347,28 @@ Oracle provides multiple ways to delete JSON documents from collections.
    connection = oracledb.connect(
        user="jsonuser",
        password="WelcomeJson#123",
-       dsn="localhost/FREEPDB1"
+       dsn="localhost:1522/myatp_low"
    )
 
-   soda = connection.getSodaDatabase()
-   collection = soda.openCollection("products")
+   cursor = connection.cursor()
 
-   # Delete document by key
-   count = collection.find().key("PROD-002").remove()
+   # Delete document by _id
+   cursor.execute("""
+       DELETE FROM products
+       WHERE JSON_VALUE(data, '$._id') = 'PROD-002'
+   """)
 
-   print(f"{count} document removed.")
+   print(f"{cursor.rowcount} row(s) deleted.")
    connection.commit()
-   print("\nCommit complete.")
-
    connection.close()
    ```
 
    Expected output:
    ```
-   1 document removed.
-
-   Commit complete.
+   1 row(s) deleted.
    ```
 
-   > **Python**: The `remove()` method returns the count of deleted documents.
-
-   /if
+   > **Python**: Use standard DELETE with JSON_VALUE for filtering.
 
 2. Verify the deletion:
 
@@ -1750,58 +1382,31 @@ Oracle provides multiple ways to delete JSON documents from collections.
 
 1. Delete products with low stock:
 
-   if type="sql"
-
    ```sql
    DELETE FROM products
-   WHERE JSON_VALUE(json_document, '$.quantity' RETURNING NUMBER) < 50;
+   WHERE JSON_VALUE(data, '$.quantity' RETURNING NUMBER) < 50;
 
    COMMIT;
    ```
 
-   /if
-
-   if type="soda"
-
-   ```sql
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('products');
-
-     -- Delete documents matching filter
-     status := collection.find()
-       .filter('{"quantity": {"$lt": 50}}')
-       .remove();
-
-     DBMS_OUTPUT.PUT_LINE(status || ' documents removed.');
-   END;
-   /
-   ```
-
-   /if
-
-   if type="mongodb"
+   **MongoDB API Approach:**
 
    ```javascript
    // Delete multiple documents
    db.products.deleteMany({ quantity: { $lt: 50 } })
    ```
 
-   /if
-
-   if type="python"
+   **Python Approach:**
 
    ```python
    # Delete multiple documents matching filter
-   filter_spec = {"quantity": {"$lt": 50}}
-   count = collection.find().filter(filter_spec).remove()
-   print(f"{count} documents removed.")
+   cursor.execute("""
+       DELETE FROM products
+       WHERE JSON_VALUE(data, '$.quantity' RETURNING NUMBER) < 50
+   """)
+   print(f"{cursor.rowcount} document(s) removed.")
    connection.commit()
    ```
-
-   /if
 
 ### Step 3: Clean Up (Optional)
 
@@ -1812,45 +1417,49 @@ If you want to remove all test data:
 TRUNCATE TABLE products;
 
 -- Or drop collection completely
-BEGIN
-  DBMS_SODA.DROP_COLLECTION('products');
-END;
-/
+DROP TABLE products;
+
+-- Recreate if needed
+CREATE JSON COLLECTION TABLE products;
 ```
 
 ## Summary
 
 In this lab, you learned:
 
-* ✅ How to create JSON collections using SODA and SQL
-* ✅ Multiple ways to insert JSON documents
-* ✅ Core JSON query functions (JSON_VALUE, JSON_QUERY, JSON_TABLE, JSON_EXISTS)
-* ✅ How to update JSON documents with JSON_MERGEPATCH
-* ✅ Creating indexes for JSON data (functional, multivalue, search indexes)
-* ✅ Understanding OSON format and performance tiers
-* ✅ Measuring document sizes and query performance
-* ✅ MongoDB API equivalents
+* How to create JSON Collection Tables using `CREATE JSON COLLECTION TABLE`
+* Multiple ways to insert JSON documents (SQL, MongoDB API, REST, Python)
+* Core JSON query functions (JSON_VALUE, JSON_QUERY, JSON_TABLE, JSON_EXISTS)
+* How to update JSON documents with JSON_MERGEPATCH and JSON_TRANSFORM
+* Creating indexes for JSON data (functional, multivalue, search indexes)
+* Understanding OSON format and storage tiers (inline vs out-of-line)
+* Measuring document sizes and query performance
+* MongoDB API equivalents
 
 **Key Takeaways:**
 
-1. **OSON format** provides optimal binary storage for JSON
-2. **Keep documents < 7,950 bytes** for inline storage (fastest performance)
-3. **Indexes are critical** for JSON query performance
-4. **JSON_TABLE** converts JSON to relational rows for analytics
-5. **Oracle provides both SQL and MongoDB APIs** for JSON collections
+1. **JSON Collection Tables** provide simple, single-column storage for JSON documents
+2. **OSON format** provides optimal binary storage for JSON
+3. **Keep documents < 7,950 bytes** for inline storage (fastest performance)
+4. **Indexes are critical** for JSON query performance
+5. **JSON_TABLE** converts JSON to relational rows for analytics
+6. **JSON_TRANSFORM** is the most powerful update method
+7. **Oracle provides both SQL and MongoDB APIs** for JSON collections
 
 You are now ready to proceed to **Lab 2: Embedded vs Referenced Patterns**, where you will learn when to embed related data in documents versus storing them separately.
 
 ## Learn More
 
-* [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/)
-* [SQL/JSON Function Reference](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/function-JSON_VALUE.html)
-* [JSON Search Index](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/json-search-index.html)
-* [OSON Binary Format](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/oson-format.html)
+* [Oracle AI Database 26ai](https://www.oracle.com/database/ai-native-database-26ai/)
+* [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/)
+* [SQL/JSON Function Reference](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/function-JSON_VALUE.html)
+* [JSON_TRANSFORM Reference](https://oracle-base.com/articles/21c/json_transform-21c)
+* [JSON Search Index](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/json-search-index.html)
+* [OSON Binary Format](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/oson-format.html)
 * [Oracle Database API for MongoDB](https://docs.oracle.com/en/database/oracle/mongodb-api/)
 
 ## Acknowledgements
 
 * **Author** - Rick Houlihan
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
-* **Last Updated By/Date** - Rick Houlihan, November 2024
+* **Last Updated By/Date** - Rick Houlihan, November 2025

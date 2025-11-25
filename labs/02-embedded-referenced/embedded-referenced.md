@@ -26,7 +26,7 @@ This lab assumes you have:
 
 * Completed Lab 0: Setup
 * Completed Lab 1: JSON Collections Fundamentals
-* Access to Oracle Database as JSONUSER
+* Access to Oracle AI Database 26ai as JSONUSER
 * Understanding of JSON_VALUE, JSON_QUERY, and JSON_TABLE
 
 ## Task 1: Understand the Patterns
@@ -69,11 +69,11 @@ This is a **key decision** in document modeling, and your answer should be based
 ```
 
 **Characteristics:**
-- ✅ All related data in one document
-- ✅ Single query retrieves everything
-- ✅ Extremely fast reads (no joins)
-- ❌ Data duplication (uses more storage)
-- ❌ Updates must propagate to all copies
+- All related data in one document
+- Single query retrieves everything
+- Extremely fast reads (no joins)
+- Data duplication (uses more storage)
+- Updates must propagate to all copies
 
 ### Referenced Pattern (Normalized)
 
@@ -113,11 +113,11 @@ This is a **key decision** in document modeling, and your answer should be based
 ```
 
 **Characteristics:**
-- ✅ No data duplication
-- ✅ Easy to update individual items
-- ✅ Maintains referential integrity
-- ❌ Requires multiple queries or joins
-- ❌ Slower reads (application-level assembly)
+- No data duplication
+- Easy to update individual items
+- Maintains referential integrity
+- Requires multiple queries or joins
+- Slower reads (application-level assembly)
 
 ### The Decision Matrix
 
@@ -141,39 +141,29 @@ Let's implement an e-commerce order system using the embedded pattern.
 1. Create the collection:
 
    ```sql
-   CREATE TABLE orders_embedded (
-     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-     json_document JSON,
-     created_on TIMESTAMP DEFAULT SYSTIMESTAMP,
-     last_modified TIMESTAMP DEFAULT SYSTIMESTAMP
-   );
+   CREATE JSON COLLECTION TABLE orders_embedded;
    ```
 
 2. Create index on order ID:
 
    ```sql
    CREATE INDEX idx_orders_emb_id
-   ON orders_embedded (JSON_VALUE(json_document, '$._id'));
+   ON orders_embedded (JSON_VALUE(data, '$._id'));
    ```
 
 3. Create index on customer ID:
 
    ```sql
    CREATE INDEX idx_orders_emb_customer
-   ON orders_embedded (JSON_VALUE(json_document, '$.customer_id'));
+   ON orders_embedded (JSON_VALUE(data, '$.customer_id'));
    ```
 
 ### Step 2: Insert Embedded Orders
 
 1. Insert an order with embedded items and customer info:
 
-   **SQL Approach:**
-
-if type="sql"
-
    ```sql
-   <copy>
-   INSERT INTO orders_embedded (json_document) VALUES (
+   INSERT INTO orders_embedded (data) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'ORD-EMB-001',
        'order_date' VALUE '2024-11-15T10:30:00',
@@ -212,97 +202,24 @@ if type="sql"
        'total' VALUE 169.96
      )
    );
-   </copy>
-   ```
 
-   Expected output:
-   ```
-   1 row created.
-   ```
-
-/if
-
-   **SODA Approach:**
-
-if type="soda"
-
-   ```sql
-   <copy>
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('orders_embedded');
-
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "ORD-EMB-001",
-           "order_date": "2024-11-15T10:30:00",
-           "status": "shipped",
-           "customer_id": "CUST-456",
-           "customer": {
-             "name": "Alice Johnson",
-             "email": "alice@email.com",
-             "phone": "+1-555-0123"
-           },
-           "shipping_address": {
-             "street": "123 Main Street",
-             "city": "San Francisco",
-             "state": "CA",
-             "zip": "94105"
-           },
-           "items": [
-             {
-               "product_id": "PROD-001",
-               "product_name": "Wireless Bluetooth Headphones",
-               "price": 79.99,
-               "quantity": 1,
-               "subtotal": 79.99
-             },
-             {
-               "product_id": "PROD-002",
-               "product_name": "Ergonomic Wireless Mouse",
-               "price": 34.99,
-               "quantity": 2,
-               "subtotal": 69.98
-             }
-           ],
-           "subtotal": 149.97,
-           "tax": 12.00,
-           "shipping": 7.99,
-           "total": 169.96
-         }')
-       )
-     );
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE('1 row created.');
-     END IF;
-   END;
-   /
-   </copy>
+   COMMIT;
    ```
 
    Expected output:
    ```
    1 row created.
 
-   PL/SQL procedure successfully completed.
+   Commit complete.
    ```
-
-/if
 
    **MongoDB API Approach:**
 
-if type="mongodb"
-
    ```javascript
-   <copy>
    // Connect to Oracle using MongoDB API
-   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/jsonuser?authMechanism=PLAIN&authSource=$external&tls=false"
 
-   use mydb
+   use jsonuser
 
    // Insert embedded order document
    db.orders_embedded.insertOne({
@@ -342,28 +259,15 @@ if type="mongodb"
      shipping: 7.99,
      total: 169.96
    })
-   </copy>
    ```
 
-   Expected output:
-   ```javascript
-   {
-     acknowledged: true,
-     insertedId: 'ORD-EMB-001'
-   }
-   ```
-
-   > **MongoDB API**: Embedded pattern is natural in MongoDB - nested documents and arrays are first-class citizens. This is identical to native MongoDB syntax.
-
-/if
+   > **MongoDB API**: Embedded pattern is natural in MongoDB - nested documents and arrays are first-class citizens.
 
    **REST API Approach:**
 
-if type="rest"
-
    ```bash
-   <copy>
    # Insert embedded order via ORDS SODA REST API
+   # Prerequisite: Schema must be REST-enabled (EXEC ORDS.ENABLE_SCHEMA;)
    curl -X POST \
      "http://localhost:8080/ords/jsonuser/soda/latest/orders_embedded" \
      -H "Content-Type: application/json" \
@@ -377,12 +281,6 @@ if type="rest"
          "email": "alice@email.com",
          "phone": "+1-555-0123"
        },
-       "shipping_address": {
-         "street": "123 Main Street",
-         "city": "San Francisco",
-         "state": "CA",
-         "zip": "94105"
-       },
        "items": [
          {
            "product_id": "PROD-001",
@@ -390,52 +288,25 @@ if type="rest"
            "price": 79.99,
            "quantity": 1,
            "subtotal": 79.99
-         },
-         {
-           "product_id": "PROD-002",
-           "product_name": "Ergonomic Wireless Mouse",
-           "price": 34.99,
-           "quantity": 2,
-           "subtotal": 69.98
          }
        ],
-       "subtotal": 149.97,
-       "tax": 12.00,
-       "shipping": 7.99,
        "total": 169.96
      }'
-   </copy>
    ```
-
-   Expected output:
-   ```json
-   {
-     "id": "...",
-     "etag": "...",
-     "lastModified": "2024-11-15T10:30:00.000Z"
-   }
-   ```
-
-   > **REST API**: Perfect for microservices and web applications. The nested JSON structure is sent directly in the HTTP request body.
-
-/if
 
    **Python Approach:**
 
-if type="python"
-
    ```python
-   <copy>
    import oracledb
+   import json
 
    connection = oracledb.connect(
        user="jsonuser",
        password="WelcomeJson#123",
-       dsn="localhost/FREEPDB1"
+       dsn="localhost:1522/myatp_low"
    )
 
-   soda = connection.getSodaDatabase()
-   collection = soda.openCollection("orders_embedded")
+   cursor = connection.cursor()
 
    # Embedded order with nested customer and items
    embedded_order = {
@@ -445,85 +316,68 @@ if type="python"
        "customer_id": "CUST-456",
        "customer": {
            "name": "Alice Johnson",
-           "email": "alice@email.com",
-           "phone": "+1-555-0123"
-       },
-       "shipping_address": {
-           "street": "123 Main Street",
-           "city": "San Francisco",
-           "state": "CA",
-           "zip": "94105"
+           "email": "alice@email.com"
        },
        "items": [
-           {
-               "product_id": "PROD-001",
-               "product_name": "Wireless Bluetooth Headphones",
-               "price": 79.99,
-               "quantity": 1,
-               "subtotal": 79.99
-           },
-           {
-               "product_id": "PROD-002",
-               "product_name": "Ergonomic Wireless Mouse",
-               "price": 34.99,
-               "quantity": 2,
-               "subtotal": 69.98
-           }
+           {"product_id": "PROD-001", "product_name": "Headphones", "price": 79.99, "quantity": 1}
        ],
-       "subtotal": 149.97,
-       "tax": 12.00,
-       "shipping": 7.99,
        "total": 169.96
    }
 
-   doc = collection.insertOne(embedded_order)
-   print("1 row created.")
+   cursor.execute(
+       "INSERT INTO orders_embedded (data) VALUES (:1)",
+       [json.dumps(embedded_order)]
+   )
    connection.commit()
-
+   print("1 row created.")
    connection.close()
-   </copy>
    ```
-
-   Expected output:
-   ```
-   1 row created.
-   ```
-
-   > **Python**: Using Python dictionaries and lists makes embedded patterns very natural. Perfect for data science and analytics workflows.
-
-/if
 
 2. Insert more embedded orders:
 
    ```sql
-   INSERT INTO orders_embedded (json_document)
-   SELECT
+   -- Insert additional orders one at a time
+   INSERT INTO orders_embedded (data) VALUES (
      JSON_OBJECT(
-       '_id' VALUE 'ORD-EMB-' || LPAD(level, 3, '0'),
-       'order_date' VALUE SYSTIMESTAMP - level,
-       'status' VALUE CASE MOD(level, 3)
-         WHEN 0 THEN 'delivered'
-         WHEN 1 THEN 'shipped'
-         ELSE 'processing'
-       END,
-       'customer_id' VALUE 'CUST-' || LPAD(MOD(level, 10) + 1, 3, '0'),
-       'customer' VALUE JSON_OBJECT(
-         'name' VALUE 'Customer ' || MOD(level, 10),
-         'email' VALUE 'customer' || MOD(level, 10) || '@email.com'
-       ),
+       '_id' VALUE 'ORD-EMB-002',
+       'order_date' VALUE SYSTIMESTAMP - 1,
+       'status' VALUE 'delivered',
+       'customer_id' VALUE 'CUST-001',
+       'customer' VALUE JSON_OBJECT('name' VALUE 'Customer 1', 'email' VALUE 'customer1@email.com'),
        'items' VALUE JSON_ARRAY(
-         JSON_OBJECT(
-           'product_id' VALUE 'PROD-' || LPAD(MOD(level * 3, 20) + 1, 3, '0'),
-           'product_name' VALUE 'Product ' || MOD(level * 3, 20),
-           'price' VALUE 29.99 + (level * 5),
-           'quantity' VALUE MOD(level, 3) + 1,
-           'subtotal' VALUE (29.99 + (level * 5)) * (MOD(level, 3) + 1)
-         )
+         JSON_OBJECT('product_id' VALUE 'PROD-003', 'product_name' VALUE 'Product 3', 'price' VALUE 34.99, 'quantity' VALUE 2, 'subtotal' VALUE 69.98)
        ),
-       'total' VALUE (29.99 + (level * 5)) * (MOD(level, 3) + 1) * 1.08
+       'total' VALUE 75.58
      )
-   FROM dual
-   CONNECT BY level <= 100;
+   );
+
+   INSERT INTO orders_embedded (data) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ORD-EMB-003',
+       'order_date' VALUE SYSTIMESTAMP - 2,
+       'status' VALUE 'shipped',
+       'customer_id' VALUE 'CUST-002',
+       'customer' VALUE JSON_OBJECT('name' VALUE 'Customer 2', 'email' VALUE 'customer2@email.com'),
+       'items' VALUE JSON_ARRAY(
+         JSON_OBJECT('product_id' VALUE 'PROD-004', 'product_name' VALUE 'Product 4', 'price' VALUE 44.99, 'quantity' VALUE 1, 'subtotal' VALUE 44.99)
+       ),
+       'total' VALUE 48.59
+     )
+   );
+
+   INSERT INTO orders_embedded (data) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ORD-EMB-004',
+       'order_date' VALUE SYSTIMESTAMP - 3,
+       'status' VALUE 'processing',
+       'customer_id' VALUE 'CUST-003',
+       'customer' VALUE JSON_OBJECT('name' VALUE 'Customer 3', 'email' VALUE 'customer3@email.com'),
+       'items' VALUE JSON_ARRAY(
+         JSON_OBJECT('product_id' VALUE 'PROD-005', 'product_name' VALUE 'Product 5', 'price' VALUE 54.99, 'quantity' VALUE 3, 'subtotal' VALUE 164.97)
+       ),
+       'total' VALUE 178.17
+     )
+   );
 
    COMMIT;
    ```
@@ -534,16 +388,16 @@ if type="python"
    SELECT COUNT(*) FROM orders_embedded;
    ```
 
-   Expected: 101 orders
+   Expected: 4 orders
 
 ### Step 3: Query Embedded Orders
 
 1. Retrieve complete order with one query:
 
    ```sql
-   SELECT JSON_SERIALIZE(json_document PRETTY)
+   SELECT JSON_SERIALIZE(data PRETTY)
    FROM orders_embedded
-   WHERE JSON_VALUE(json_document, '$._id') = 'ORD-EMB-001';
+   WHERE JSON_VALUE(data, '$._id') = 'ORD-EMB-001';
    ```
 
    **Notice:** All order data (customer, items, totals) returned in a **single query**!
@@ -552,12 +406,12 @@ if type="python"
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$._id') AS order_id,
-     JSON_VALUE(json_document, '$.order_date') AS order_date,
-     JSON_VALUE(json_document, '$.customer.name') AS customer_name,
-     JSON_VALUE(json_document, '$.total' RETURNING NUMBER) AS total
+     JSON_VALUE(data, '$._id') AS order_id,
+     JSON_VALUE(data, '$.order_date') AS order_date,
+     JSON_VALUE(data, '$.customer.name') AS customer_name,
+     JSON_VALUE(data, '$.total' RETURNING NUMBER) AS total
    FROM orders_embedded
-   WHERE JSON_VALUE(json_document, '$.customer_id') = 'CUST-456';
+   WHERE JSON_VALUE(data, '$.customer_id') = 'CUST-456';
    ```
 
    **Expected output:**
@@ -573,14 +427,14 @@ if type="python"
 
    ```sql
    SELECT
-     JSON_VALUE(o.json_document, '$._id') AS order_id,
-     JSON_VALUE(o.json_document, '$.customer.name') AS customer_name,
+     JSON_VALUE(o.data, '$._id') AS order_id,
+     JSON_VALUE(o.data, '$.customer.name') AS customer_name,
      items.product_name,
      items.quantity,
      items.price,
      items.subtotal
    FROM orders_embedded o,
-     JSON_TABLE(o.json_document, '$.items[*]'
+     JSON_TABLE(o.data, '$.items[*]'
        COLUMNS (
          product_name VARCHAR2(100) PATH '$.product_name',
          quantity NUMBER PATH '$.quantity',
@@ -588,7 +442,7 @@ if type="python"
          subtotal NUMBER PATH '$.subtotal'
        )
      ) items
-   WHERE JSON_VALUE(o.json_document, '$._id') = 'ORD-EMB-001';
+   WHERE JSON_VALUE(o.data, '$._id') = 'ORD-EMB-001';
    ```
 
 4. Calculate total revenue by product (embedded):
@@ -600,7 +454,7 @@ if type="python"
      SUM(items.quantity) AS total_quantity,
      SUM(items.subtotal) AS total_revenue
    FROM orders_embedded o,
-     JSON_TABLE(o.json_document, '$.items[*]'
+     JSON_TABLE(o.data, '$.items[*]'
        COLUMNS (
          product_id VARCHAR2(20) PATH '$.product_id',
          product_name VARCHAR2(100) PATH '$.product_name',
@@ -621,60 +475,43 @@ Now let's implement the same scenario using the referenced pattern (normalized).
 1. Create orders collection (referenced):
 
    ```sql
-   CREATE TABLE orders_referenced (
-     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-     json_document JSON,
-     created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-   );
+   CREATE JSON COLLECTION TABLE orders_referenced;
    ```
 
 2. Create order items collection:
 
    ```sql
-   CREATE TABLE order_items_referenced (
-     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-     json_document JSON,
-     created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-   );
+   CREATE JSON COLLECTION TABLE order_items_referenced;
    ```
 
 3. Create customers collection:
 
    ```sql
-   CREATE TABLE customers_referenced (
-     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-     json_document JSON,
-     created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-   );
+   CREATE JSON COLLECTION TABLE customers_referenced;
    ```
 
 4. Create indexes:
 
    ```sql
    CREATE INDEX idx_orders_ref_id
-   ON orders_referenced (JSON_VALUE(json_document, '$._id'));
+   ON orders_referenced (JSON_VALUE(data, '$._id'));
 
    CREATE INDEX idx_orders_ref_customer
-   ON orders_referenced (JSON_VALUE(json_document, '$.customer_id'));
+   ON orders_referenced (JSON_VALUE(data, '$.customer_id'));
 
    CREATE INDEX idx_items_ref_order
-   ON order_items_referenced (JSON_VALUE(json_document, '$.order_id'));
+   ON order_items_referenced (JSON_VALUE(data, '$.order_id'));
 
    CREATE INDEX idx_customers_ref_id
-   ON customers_referenced (JSON_VALUE(json_document, '$._id'));
+   ON customers_referenced (JSON_VALUE(data, '$._id'));
    ```
 
 ### Step 2: Insert Referenced Data
 
 1. Insert customers:
 
-   **SQL Approach:**
-
-if type="sql"
-
    ```sql
-   <copy>
-   INSERT INTO customers_referenced (json_document) VALUES (
+   INSERT INTO customers_referenced (data) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'CUST-456',
        'name' VALUE 'Alice Johnson',
@@ -693,82 +530,12 @@ if type="sql"
    );
 
    COMMIT;
-   </copy>
    ```
-
-   Expected output:
-   ```
-   1 row created.
-
-   Commit complete.
-   ```
-
-/if
-
-   **SODA Approach:**
-
-if type="soda"
-
-   ```sql
-   <copy>
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('customers_referenced');
-
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "CUST-456",
-           "name": "Alice Johnson",
-           "email": "alice@email.com",
-           "phone": "+1-555-0123",
-           "addresses": [
-             {
-               "type": "shipping",
-               "street": "123 Main Street",
-               "city": "San Francisco",
-               "state": "CA",
-               "zip": "94105"
-             }
-           ]
-         }')
-       )
-     );
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE('1 row created.');
-       DBMS_OUTPUT.PUT_LINE('');
-       DBMS_OUTPUT.PUT_LINE('Commit complete.');
-     END IF;
-
-     COMMIT;
-   END;
-   /
-   </copy>
-   ```
-
-   Expected output:
-   ```
-   1 row created.
-
-   Commit complete.
-
-   PL/SQL procedure successfully completed.
-   ```
-
-/if
 
 2. Insert orders (without embedded items or customer details):
 
-   **SQL Approach:**
-
-if type="sql"
-
    ```sql
-   <copy>
-   INSERT INTO orders_referenced (json_document) VALUES (
+   INSERT INTO orders_referenced (data) VALUES (
      JSON_OBJECT(
        '_id' VALUE 'ORD-REF-001',
        'order_date' VALUE '2024-11-15T10:30:00',
@@ -780,209 +547,71 @@ if type="sql"
        'total' VALUE 169.96
      )
    );
-   </copy>
+
+   COMMIT;
    ```
-
-   Expected output:
-   ```
-   1 row created.
-   ```
-
-/if
-
-   **SODA Approach:**
-
-if type="soda"
-
-   ```sql
-   <copy>
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('orders_referenced');
-
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "ORD-REF-001",
-           "order_date": "2024-11-15T10:30:00",
-           "status": "shipped",
-           "customer_id": "CUST-456",
-           "subtotal": 149.97,
-           "tax": 12.00,
-           "shipping": 7.99,
-           "total": 169.96
-         }')
-       )
-     );
-
-     IF status = 1 THEN
-       DBMS_OUTPUT.PUT_LINE('1 row created.');
-     END IF;
-   END;
-   /
-   </copy>
-   ```
-
-   Expected output:
-   ```
-   1 row created.
-
-   PL/SQL procedure successfully completed.
-   ```
-
-/if
 
 3. Insert order items (separate documents):
 
-   **SQL Approach:**
-
-if type="sql"
-
    ```sql
-   <copy>
-   INSERT INTO order_items_referenced (json_document)
-   VALUES
-   (JSON_OBJECT(
-     '_id' VALUE 'ITEM-001',
-     'order_id' VALUE 'ORD-REF-001',
-     'product_id' VALUE 'PROD-001',
-     'product_name' VALUE 'Wireless Bluetooth Headphones',
-     'price' VALUE 79.99,
-     'quantity' VALUE 1,
-     'subtotal' VALUE 79.99
-   )),
-   (JSON_OBJECT(
-     '_id' VALUE 'ITEM-002',
-     'order_id' VALUE 'ORD-REF-001',
-     'product_id' VALUE 'PROD-002',
-     'product_name' VALUE 'Ergonomic Wireless Mouse',
-     'price' VALUE 34.99,
-     'quantity' VALUE 2,
-     'subtotal' VALUE 69.98
-   ));
+   -- Insert item 1
+   INSERT INTO order_items_referenced (data) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ITEM-001',
+       'order_id' VALUE 'ORD-REF-001',
+       'product_id' VALUE 'PROD-001',
+       'product_name' VALUE 'Wireless Bluetooth Headphones',
+       'price' VALUE 79.99,
+       'quantity' VALUE 1,
+       'subtotal' VALUE 79.99
+     )
+   );
+
+   -- Insert item 2
+   INSERT INTO order_items_referenced (data) VALUES (
+     JSON_OBJECT(
+       '_id' VALUE 'ITEM-002',
+       'order_id' VALUE 'ORD-REF-001',
+       'product_id' VALUE 'PROD-002',
+       'product_name' VALUE 'Ergonomic Wireless Mouse',
+       'price' VALUE 34.99,
+       'quantity' VALUE 2,
+       'subtotal' VALUE 69.98
+     )
+   );
 
    COMMIT;
-   </copy>
    ```
-
-   Expected output:
-   ```
-   2 rows created.
-
-   Commit complete.
-   ```
-
-/if
-
-   **SODA Approach:**
-
-if type="soda"
-
-   ```sql
-   <copy>
-   DECLARE
-     collection SODA_COLLECTION_T;
-     status NUMBER;
-     total_inserted NUMBER := 0;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('order_items_referenced');
-
-     -- Insert ITEM-001
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "ITEM-001",
-           "order_id": "ORD-REF-001",
-           "product_id": "PROD-001",
-           "product_name": "Wireless Bluetooth Headphones",
-           "price": 79.99,
-           "quantity": 1,
-           "subtotal": 79.99
-         }')
-       )
-     );
-     total_inserted := total_inserted + status;
-
-     -- Insert ITEM-002
-     status := collection.insert_one(
-       SODA_DOCUMENT_T(
-         b_content => UTL_RAW.cast_to_raw('{
-           "_id": "ITEM-002",
-           "order_id": "ORD-REF-001",
-           "product_id": "PROD-002",
-           "product_name": "Ergonomic Wireless Mouse",
-           "price": 34.99,
-           "quantity": 2,
-           "subtotal": 69.98
-         }')
-       )
-     );
-     total_inserted := total_inserted + status;
-
-     DBMS_OUTPUT.PUT_LINE(total_inserted || ' rows created.');
-     DBMS_OUTPUT.PUT_LINE('');
-     DBMS_OUTPUT.PUT_LINE('Commit complete.');
-
-     COMMIT;
-   END;
-   /
-   </copy>
-   ```
-
-   Expected output:
-   ```
-   2 rows created.
-
-   Commit complete.
-
-   PL/SQL procedure successfully completed.
-   ```
-
-/if
 
 4. Insert more referenced data:
 
    ```sql
    -- Insert more customers
-   INSERT INTO customers_referenced (json_document)
-   SELECT
-     JSON_OBJECT(
-       '_id' VALUE 'CUST-' || LPAD(level, 3, '0'),
-       'name' VALUE 'Customer ' || level,
-       'email' VALUE 'customer' || level || '@email.com'
-     )
-   FROM dual
-   CONNECT BY level <= 10;
+   INSERT INTO customers_referenced (data) VALUES (
+     JSON_OBJECT('_id' VALUE 'CUST-001', 'name' VALUE 'Customer 1', 'email' VALUE 'customer1@email.com')
+   );
+   INSERT INTO customers_referenced (data) VALUES (
+     JSON_OBJECT('_id' VALUE 'CUST-002', 'name' VALUE 'Customer 2', 'email' VALUE 'customer2@email.com')
+   );
+   INSERT INTO customers_referenced (data) VALUES (
+     JSON_OBJECT('_id' VALUE 'CUST-003', 'name' VALUE 'Customer 3', 'email' VALUE 'customer3@email.com')
+   );
 
    -- Insert more orders
-   INSERT INTO orders_referenced (json_document)
-   SELECT
-     JSON_OBJECT(
-       '_id' VALUE 'ORD-REF-' || LPAD(level, 3, '0'),
-       'order_date' VALUE SYSTIMESTAMP - level,
-       'status' VALUE 'shipped',
-       'customer_id' VALUE 'CUST-' || LPAD(MOD(level, 10) + 1, 3, '0'),
-       'total' VALUE (29.99 + (level * 5)) * 1.08
-     )
-   FROM dual
-   CONNECT BY level <= 100;
+   INSERT INTO orders_referenced (data) VALUES (
+     JSON_OBJECT('_id' VALUE 'ORD-REF-002', 'order_date' VALUE SYSTIMESTAMP - 1, 'status' VALUE 'shipped', 'customer_id' VALUE 'CUST-001', 'total' VALUE 75.58)
+   );
+   INSERT INTO orders_referenced (data) VALUES (
+     JSON_OBJECT('_id' VALUE 'ORD-REF-003', 'order_date' VALUE SYSTIMESTAMP - 2, 'status' VALUE 'delivered', 'customer_id' VALUE 'CUST-002', 'total' VALUE 125.99)
+   );
 
    -- Insert more order items
-   INSERT INTO order_items_referenced (json_document)
-   SELECT
-     JSON_OBJECT(
-       '_id' VALUE 'ITEM-' || LPAD(level, 4, '0'),
-       'order_id' VALUE 'ORD-REF-' || LPAD(level, 3, '0'),
-       'product_id' VALUE 'PROD-' || LPAD(MOD(level, 20) + 1, 3, '0'),
-       'product_name' VALUE 'Product ' || MOD(level, 20),
-       'price' VALUE 29.99 + (level * 5),
-       'quantity' VALUE MOD(level, 3) + 1,
-       'subtotal' VALUE (29.99 + (level * 5)) * (MOD(level, 3) + 1)
-     )
-   FROM dual
-   CONNECT BY level <= 100;
+   INSERT INTO order_items_referenced (data) VALUES (
+     JSON_OBJECT('_id' VALUE 'ITEM-003', 'order_id' VALUE 'ORD-REF-002', 'product_id' VALUE 'PROD-003', 'product_name' VALUE 'Product 3', 'price' VALUE 34.99, 'quantity' VALUE 2, 'subtotal' VALUE 69.98)
+   );
+   INSERT INTO order_items_referenced (data) VALUES (
+     JSON_OBJECT('_id' VALUE 'ITEM-004', 'order_id' VALUE 'ORD-REF-003', 'product_id' VALUE 'PROD-004', 'product_name' VALUE 'Product 4', 'price' VALUE 125.99, 'quantity' VALUE 1, 'subtotal' VALUE 125.99)
+   );
 
    COMMIT;
    ```
@@ -992,9 +621,9 @@ if type="soda"
 1. Retrieve order (first query):
 
    ```sql
-   SELECT JSON_SERIALIZE(json_document PRETTY)
+   SELECT JSON_SERIALIZE(data PRETTY)
    FROM orders_referenced
-   WHERE JSON_VALUE(json_document, '$._id') = 'ORD-REF-001';
+   WHERE JSON_VALUE(data, '$._id') = 'ORD-REF-001';
    ```
 
    **Notice:** This returns only the order header - no customer details, no items!
@@ -1002,17 +631,17 @@ if type="soda"
 2. Retrieve order items (second query):
 
    ```sql
-   SELECT JSON_SERIALIZE(json_document PRETTY)
+   SELECT JSON_SERIALIZE(data PRETTY)
    FROM order_items_referenced
-   WHERE JSON_VALUE(json_document, '$.order_id') = 'ORD-REF-001';
+   WHERE JSON_VALUE(data, '$.order_id') = 'ORD-REF-001';
    ```
 
 3. Retrieve customer (third query):
 
    ```sql
-   SELECT JSON_SERIALIZE(json_document PRETTY)
+   SELECT JSON_SERIALIZE(data PRETTY)
    FROM customers_referenced
-   WHERE JSON_VALUE(json_document, '$._id') = 'CUST-456';
+   WHERE JSON_VALUE(data, '$._id') = 'CUST-456';
    ```
 
    **Notice:** It took **3 separate queries** to get the same data that embedded pattern returned in **1 query**!
@@ -1021,199 +650,19 @@ if type="soda"
 
    ```sql
    SELECT
-     JSON_VALUE(o.json_document, '$._id') AS order_id,
-     JSON_VALUE(o.json_document, '$.order_date') AS order_date,
-     JSON_VALUE(c.json_document, '$.name') AS customer_name,
-     JSON_VALUE(i.json_document, '$.product_name') AS product,
-     JSON_VALUE(i.json_document, '$.quantity' RETURNING NUMBER) AS quantity,
-     JSON_VALUE(i.json_document, '$.subtotal' RETURNING NUMBER) AS subtotal
+     JSON_VALUE(o.data, '$._id') AS order_id,
+     JSON_VALUE(o.data, '$.order_date') AS order_date,
+     JSON_VALUE(c.data, '$.name') AS customer_name,
+     JSON_VALUE(i.data, '$.product_name') AS product,
+     JSON_VALUE(i.data, '$.quantity' RETURNING NUMBER) AS quantity,
+     JSON_VALUE(i.data, '$.subtotal' RETURNING NUMBER) AS subtotal
    FROM orders_referenced o
    JOIN customers_referenced c
-     ON JSON_VALUE(o.json_document, '$.customer_id') = JSON_VALUE(c.json_document, '$._id')
+     ON JSON_VALUE(o.data, '$.customer_id') = JSON_VALUE(c.data, '$._id')
    JOIN order_items_referenced i
-     ON JSON_VALUE(o.json_document, '$._id') = JSON_VALUE(i.json_document, '$.order_id')
-   WHERE JSON_VALUE(o.json_document, '$._id') = 'ORD-REF-001';
+     ON JSON_VALUE(o.data, '$._id') = JSON_VALUE(i.data, '$.order_id')
+   WHERE JSON_VALUE(o.data, '$._id') = 'ORD-REF-001';
    ```
-
-5. MongoDB aggregation with $lookup (join-like query):
-
-   if type="mongodb"
-
-   ```javascript
-   <copy>
-   // Connect to Oracle using MongoDB API
-   // mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
-
-   use mydb
-
-   // MongoDB aggregation with $lookup - Oracle supports this!
-   db.orders_referenced.aggregate([
-     {
-       $match: { _id: "ORD-REF-001" }
-     },
-     {
-       $lookup: {
-         from: "customers_referenced",
-         localField: "customer_id",
-         foreignField: "_id",
-         as: "customer_info"
-       }
-     },
-     {
-       $lookup: {
-         from: "order_items_referenced",
-         localField: "_id",
-         foreignField: "order_id",
-         as: "items"
-       }
-     },
-     {
-       $project: {
-         _id: 1,
-         order_date: 1,
-         status: 1,
-         customer: { $arrayElemAt: ["$customer_info", 0] },
-         items: 1,
-         total: 1
-       }
-     }
-   ])
-   </copy>
-   ```
-
-   Expected output:
-   ```javascript
-   [
-     {
-       _id: 'ORD-REF-001',
-       order_date: '2024-11-15T10:30:00',
-       status: 'shipped',
-       customer: {
-         _id: 'CUST-456',
-         name: 'Alice Johnson',
-         email: 'alice@email.com',
-         phone: '+1-555-0123'
-       },
-       items: [
-         {
-           _id: 'ITEM-001',
-           order_id: 'ORD-REF-001',
-           product_id: 'PROD-001',
-           product_name: 'Wireless Bluetooth Headphones',
-           price: 79.99,
-           quantity: 1,
-           subtotal: 79.99
-         },
-         {
-           _id: 'ITEM-002',
-           order_id: 'ORD-REF-001',
-           product_id: 'PROD-002',
-           product_name: 'Ergonomic Wireless Mouse',
-           price: 34.99,
-           quantity: 2,
-           subtotal: 69.98
-         }
-       ],
-       total: 169.96
-     }
-   ]
-   ```
-
-   > **MongoDB API**: Oracle supports MongoDB's `$lookup` aggregation operator! This performs server-side joins, but is still slower than embedded pattern.
-
-   /if
-
-6. REST API pattern (multiple requests required):
-
-   if type="rest"
-
-   ```bash
-   <copy>
-   # REST API requires multiple HTTP requests for referenced pattern
-
-   # Request 1: Get order header
-   curl -X GET \
-     "http://localhost:8080/ords/jsonuser/soda/latest/orders_referenced?q={\"_id\":\"ORD-REF-001\"}" \
-     -H "Content-Type: application/json"
-
-   # Request 2: Get customer
-   curl -X GET \
-     "http://localhost:8080/ords/jsonuser/soda/latest/customers_referenced?q={\"_id\":\"CUST-456\"}" \
-     -H "Content-Type: application/json"
-
-   # Request 3: Get order items
-   curl -X GET \
-     "http://localhost:8080/ords/jsonuser/soda/latest/order_items_referenced?q={\"order_id\":\"ORD-REF-001\"}" \
-     -H "Content-Type: application/json"
-   </copy>
-   ```
-
-   Expected: 3 separate HTTP responses that must be assembled client-side
-
-   > **REST API**: Referenced pattern requires multiple HTTP round trips, adding network latency. Embedded pattern is far more efficient for REST APIs.
-
-   /if
-
-7. Python pattern (multiple find() calls):
-
-   if type="python"
-
-   ```python
-   <copy>
-   import oracledb
-
-   connection = oracledb.connect(
-       user="jsonuser",
-       password="WelcomeJson#123",
-       dsn="localhost/FREEPDB1"
-   )
-
-   soda = connection.getSodaDatabase()
-
-   # Referenced pattern requires 3 collection queries
-   orders_coll = soda.openCollection("orders_referenced")
-   customers_coll = soda.openCollection("customers_referenced")
-   items_coll = soda.openCollection("order_items_referenced")
-
-   # Query 1: Get order
-   order_doc = orders_coll.find().filter({"_id": "ORD-REF-001"}).getOne()
-   order = order_doc.getContent()
-
-   # Query 2: Get customer
-   customer_doc = customers_coll.find().filter({"_id": order["customer_id"]}).getOne()
-   customer = customer_doc.getContent()
-
-   # Query 3: Get order items
-   items_docs = items_coll.find().filter({"order_id": "ORD-REF-001"}).getDocuments()
-   items = [doc.getContent() for doc in items_docs]
-
-   # Assemble the complete order (application-side join)
-   complete_order = {
-       **order,
-       "customer": customer,
-       "items": items
-   }
-
-   print("Complete order assembled from 3 queries:")
-   print(f"Order: {complete_order['_id']}")
-   print(f"Customer: {complete_order['customer']['name']}")
-   print(f"Items: {len(complete_order['items'])}")
-
-   connection.close()
-   </copy>
-   ```
-
-   Expected output:
-   ```
-   Complete order assembled from 3 queries:
-   Order: ORD-REF-001
-   Customer: Alice Johnson
-   Items: 2
-   ```
-
-   > **Python**: Application must execute 3 separate find() operations and assemble the result. Compare this to embedded pattern which needs only 1 find().
-
-   /if
 
    **Key Insight:**
 
@@ -1223,130 +672,45 @@ if type="soda"
 
 Now let's measure the performance difference between embedded and referenced patterns.
 
-### Step 1: Create Benchmark Script
+### Step 1: Simple Performance Test
 
-1. Create a test to measure query latency:
-
-   ```sql
-   -- Clear metrics
-   TRUNCATE TABLE performance_metrics;
-
-   -- Benchmark EMBEDDED pattern (single query)
-   DECLARE
-     v_start TIMESTAMP;
-     v_end TIMESTAMP;
-     v_iterations CONSTANT NUMBER := 1000;
-     v_order_id VARCHAR2(20);
-   BEGIN
-     FOR i IN 1..v_iterations LOOP
-       v_start := SYSTIMESTAMP;
-       v_order_id := 'ORD-EMB-' || LPAD(MOD(i, 100) + 1, 3, '0');
-
-       -- Single query retrieves everything
-       SELECT
-         JSON_VALUE(json_document, '$._id'),
-         JSON_VALUE(json_document, '$.customer.name'),
-         JSON_QUERY(json_document, '$.items')
-       INTO v_order_id, v_order_id, v_order_id
-       FROM orders_embedded
-       WHERE JSON_VALUE(json_document, '$._id') = v_order_id;
-
-       v_end := SYSTIMESTAMP;
-
-       INSERT INTO performance_metrics
-       VALUES (
-         'ORDER_RETRIEVAL',
-         'EMBEDDED',
-         'SINGLE_QUERY',
-         i,
-         EXTRACT(SECOND FROM (v_end - v_start)) * 1000,
-         NULL, NULL, NULL,
-         SYSTIMESTAMP,
-         'Complete order with customer and items'
-       );
-     END LOOP;
-     COMMIT;
-   END;
-   /
-
-   -- Benchmark REFERENCED pattern (multiple queries)
-   DECLARE
-     v_start TIMESTAMP;
-     v_end TIMESTAMP;
-     v_iterations CONSTANT NUMBER := 1000;
-     v_order_id VARCHAR2(20);
-     v_customer_id VARCHAR2(20);
-   BEGIN
-     FOR i IN 1..v_iterations LOOP
-       v_start := SYSTIMESTAMP;
-       v_order_id := 'ORD-REF-' || LPAD(MOD(i, 100) + 1, 3, '0');
-
-       -- Query 1: Get order
-       SELECT JSON_VALUE(json_document, '$.customer_id')
-       INTO v_customer_id
-       FROM orders_referenced
-       WHERE JSON_VALUE(json_document, '$._id') = v_order_id;
-
-       -- Query 2: Get customer (simulated with another select)
-       SELECT JSON_VALUE(json_document, '$.name')
-       INTO v_customer_id
-       FROM customers_referenced
-       WHERE JSON_VALUE(json_document, '$._id') = v_customer_id;
-
-       -- Query 3: Get items (simulated with count)
-       SELECT COUNT(*)
-       INTO i
-       FROM order_items_referenced
-       WHERE JSON_VALUE(json_document, '$.order_id') = v_order_id;
-
-       v_end := SYSTIMESTAMP;
-
-       INSERT INTO performance_metrics
-       VALUES (
-         'ORDER_RETRIEVAL',
-         'REFERENCED',
-         'MULTIPLE_QUERIES',
-         i,
-         EXTRACT(SECOND FROM (v_end - v_start)) * 1000,
-         NULL, NULL, NULL,
-         SYSTIMESTAMP,
-         '3 queries: order + customer + items'
-       );
-     END LOOP;
-     COMMIT;
-   END;
-   /
-   ```
-
-2. Analyze results:
+1. Time embedded pattern query:
 
    ```sql
+   SET TIMING ON
+
+   -- Embedded: Single query gets everything
    SELECT
-     pattern_name,
-     COUNT(*) AS iterations,
-     ROUND(AVG(execution_time_ms), 2) AS avg_ms,
-     ROUND(MIN(execution_time_ms), 2) AS min_ms,
-     ROUND(MAX(execution_time_ms), 2) AS max_ms,
-     ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY execution_time_ms), 2) AS p95_ms,
-     ROUND(PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY execution_time_ms), 2) AS p99_ms
-   FROM performance_metrics
-   WHERE test_id = 'ORDER_RETRIEVAL'
-   GROUP BY pattern_name
-   ORDER BY avg_ms;
+     JSON_VALUE(data, '$._id') AS order_id,
+     JSON_VALUE(data, '$.customer.name') AS customer_name,
+     JSON_QUERY(data, '$.items') AS items,
+     JSON_VALUE(data, '$.total') AS total
+   FROM orders_embedded
+   WHERE JSON_VALUE(data, '$._id') = 'ORD-EMB-001';
+
+   SET TIMING OFF
    ```
 
-   **Expected Results:**
-   ```
-   PATTERN_NAME   ITERATIONS   AVG_MS   MIN_MS   MAX_MS   P95_MS   P99_MS
-   ------------   ----------   ------   ------   ------   ------   ------
-   EMBEDDED             1000     1.20     0.80     3.50     1.80     2.20
-   REFERENCED           1000     4.50     3.20    12.00     6.50     8.90
-   ```
+2. Time referenced pattern query (with joins):
 
-   **Analysis:**
-   - Embedded pattern is **3-4x faster** for retrieving complete orders
-   - Referenced pattern requires 3 queries, resulting in higher latency
-   - P95/P99 latencies are more predictable with embedded pattern
+   ```sql
+   SET TIMING ON
+
+   -- Referenced: Requires join across 3 tables
+   SELECT
+     JSON_VALUE(o.data, '$._id') AS order_id,
+     JSON_VALUE(c.data, '$.name') AS customer_name,
+     JSON_VALUE(i.data, '$.product_name') AS product,
+     JSON_VALUE(o.data, '$.total') AS total
+   FROM orders_referenced o
+   JOIN customers_referenced c
+     ON JSON_VALUE(o.data, '$.customer_id') = JSON_VALUE(c.data, '$._id')
+   JOIN order_items_referenced i
+     ON JSON_VALUE(o.data, '$._id') = JSON_VALUE(i.data, '$.order_id')
+   WHERE JSON_VALUE(o.data, '$._id') = 'ORD-REF-001';
+
+   SET TIMING OFF
+   ```
 
 ### Step 2: Measure Storage Efficiency
 
@@ -1356,50 +720,30 @@ Now let's measure the performance difference between embedded and referenced pat
    SELECT
      'EMBEDDED' AS pattern,
      COUNT(*) AS document_count,
-     SUM(LENGTHB(json_document)) AS total_bytes,
-     ROUND(AVG(LENGTHB(json_document)), 0) AS avg_bytes,
-     MAX(LENGTHB(json_document)) AS max_bytes
+     SUM(LENGTHB(data)) AS total_bytes,
+     ROUND(AVG(LENGTHB(data)), 0) AS avg_bytes
    FROM orders_embedded
    UNION ALL
    SELECT
      'REFERENCED (orders)',
      COUNT(*),
-     SUM(LENGTHB(json_document)),
-     ROUND(AVG(LENGTHB(json_document)), 0),
-     MAX(LENGTHB(json_document))
+     SUM(LENGTHB(data)),
+     ROUND(AVG(LENGTHB(data)), 0)
    FROM orders_referenced
    UNION ALL
    SELECT
      'REFERENCED (items)',
      COUNT(*),
-     SUM(LENGTHB(json_document)),
-     ROUND(AVG(LENGTHB(json_document)), 0),
-     MAX(LENGTHB(json_document))
+     SUM(LENGTHB(data)),
+     ROUND(AVG(LENGTHB(data)), 0)
    FROM order_items_referenced
    UNION ALL
    SELECT
      'REFERENCED (customers)',
      COUNT(*),
-     SUM(LENGTHB(json_document)),
-     ROUND(AVG(LENGTHB(json_document)), 0),
-     MAX(LENGTHB(json_document))
+     SUM(LENGTHB(data)),
+     ROUND(AVG(LENGTHB(data)), 0)
    FROM customers_referenced;
-   ```
-
-2. Calculate total storage comparison:
-
-   ```sql
-   SELECT
-     'EMBEDDED' AS pattern,
-     SUM(LENGTHB(json_document)) AS total_bytes
-   FROM orders_embedded
-   UNION ALL
-   SELECT
-     'REFERENCED (total)',
-     (SELECT SUM(LENGTHB(json_document)) FROM orders_referenced) +
-     (SELECT SUM(LENGTHB(json_document)) FROM order_items_referenced) +
-     (SELECT SUM(LENGTHB(json_document)) FROM customers_referenced)
-   FROM dual;
    ```
 
    **Insight:** Embedded pattern uses more storage due to data duplication, but storage is cheap compared to query performance.
@@ -1410,19 +754,19 @@ Now let's measure the performance difference between embedded and referenced pat
 
 **Use embedded when:**
 
-1. ✅ **Data is always accessed together**
+1. **Data is always accessed together**
    - Example: Order with items, customer info, shipping address
 
-2. ✅ **Bounded, small arrays** (< 100 items)
+2. **Bounded, small arrays** (< 100 items)
    - Example: Order items (typically < 50 items per order)
 
-3. ✅ **Read-heavy workload**
+3. **Read-heavy workload**
    - Example: E-commerce order history, invoices
 
-4. ✅ **Performance is critical**
+4. **Performance is critical**
    - Example: Real-time dashboards, customer-facing APIs
 
-5. ✅ **Data changes infrequently**
+5. **Data changes infrequently**
    - Example: Historical orders (immutable after shipping)
 
 **Real-world examples:**
@@ -1435,26 +779,26 @@ Now let's measure the performance difference between embedded and referenced pat
 
 **Use referenced when:**
 
-1. ✅ **Data is accessed independently**
+1. **Data is accessed independently**
    - Example: Product catalog (products queried separately from orders)
 
-2. ✅ **Unbounded, large arrays** (over 100 items)
+2. **Unbounded, large arrays** (over 100 items)
    - Example: Social media followers (millions of followers)
 
-3. ✅ **Write-heavy workload**
+3. **Write-heavy workload**
    - Example: Real-time analytics, frequently updated data
 
-4. ✅ **Strong consistency required**
+4. **Strong consistency required**
    - Example: Financial transactions, inventory management
 
-5. ✅ **Many-to-many relationships**
+5. **Many-to-many relationships**
    - Example: Users and groups, products and categories
 
 **Real-world examples:**
 - Product catalog (products referenced by many orders)
 - Social media followers (millions of users)
 - Inventory management (frequent updates)
-- Many-to-many relationships (users ↔ groups)
+- Many-to-many relationships (users <-> groups)
 
 ### The Hybrid Approach (Best Practice)
 
@@ -1463,14 +807,14 @@ In practice, most applications use **both patterns**:
 **Example: E-commerce System**
 
 **Embedded:**
-- Order → Items (bounded, always accessed together)
-- Order → Shipping address (small, accessed together)
-- Order → Billing info (small, accessed together)
+- Order -> Items (bounded, always accessed together)
+- Order -> Shipping address (small, accessed together)
+- Order -> Billing info (small, accessed together)
 
 **Referenced:**
-- Order → Customer (customer accessed independently)
-- Order Items → Product (product info changes frequently)
-- Customer → Orders (unbounded list of orders)
+- Order -> Customer (customer accessed independently)
+- Order Items -> Product (product info changes frequently)
+- Customer -> Orders (unbounded list of orders)
 
 **Next Lab Preview:**
 
@@ -1484,194 +828,60 @@ Understanding update behavior is critical for pattern selection.
 
 1. Update embedded customer name (must update all orders):
 
-   **SQL Approach:**
-
-if type="sql"
-
    ```sql
-   <copy>
    -- Update customer name in all orders
    UPDATE orders_embedded
-   SET json_document = JSON_MERGEPATCH(
-     json_document,
+   SET data = JSON_MERGEPATCH(
+     data,
      '{"customer": {"name": "Alice Smith-Johnson"}}'
    )
-   WHERE JSON_VALUE(json_document, '$.customer_id') = 'CUST-456';
+   WHERE JSON_VALUE(data, '$.customer_id') = 'CUST-456';
 
    COMMIT;
-   </copy>
    ```
-
-   Expected output:
-   ```
-   1 row updated.
-
-   Commit complete.
-   ```
-
-/if
-
-   **SODA Approach:**
-
-if type="soda"
-
-   > **Note:** SODA doesn't have a direct equivalent to JSON_MERGEPATCH for updates. For mass updates like this, SQL is more efficient. However, here's how to update a single embedded document using SODA's fetch-merge-replace pattern:
-
-   ```sql
-   <copy>
-   DECLARE
-     collection SODA_COLLECTION_T;
-     doc SODA_DOCUMENT_T;
-     doc_content CLOB;
-     merged_content CLOB;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('orders_embedded');
-
-     -- For demonstration, update one order by its _id
-     -- Get the existing document
-     doc := collection.find().key('ORD-EMB-001').get_one();
-
-     IF doc IS NOT NULL THEN
-       doc_content := doc.get_clob();
-
-       -- Merge the patch using SQL
-       SELECT JSON_MERGEPATCH(doc_content, '{"customer": {"name": "Alice Smith-Johnson"}}')
-       INTO merged_content
-       FROM DUAL;
-
-       -- Replace with merged document
-       status := collection.find().key('ORD-EMB-001').replace_one(
-         SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
-       );
-
-       IF status = 1 THEN
-         DBMS_OUTPUT.PUT_LINE('1 row updated.');
-         DBMS_OUTPUT.PUT_LINE('');
-         DBMS_OUTPUT.PUT_LINE('Commit complete.');
-       END IF;
-
-       COMMIT;
-     END IF;
-   END;
-   /
-   </copy>
-   ```
-
-   Expected output:
-   ```
-   1 row updated.
-
-   Commit complete.
-
-   PL/SQL procedure successfully completed.
-   ```
-
-   > **Best Practice:** For bulk updates across multiple documents (WHERE clause), use SQL. SODA is best for single-document updates by key.
-
-/if
 
    **Impact:** If customer has 100 orders, you must update 100 documents!
+
+2. Update using JSON_TRANSFORM (recommended):
+
+   ```sql
+   -- More precise update with JSON_TRANSFORM
+   UPDATE orders_embedded
+   SET data = JSON_TRANSFORM(data, SET '$.customer.name' = 'Alice Smith-Johnson')
+   WHERE JSON_VALUE(data, '$.customer_id') = 'CUST-456';
+
+   COMMIT;
+   ```
 
 ### Referenced Pattern Updates
 
 1. Update customer name (single update):
 
-   **SQL Approach:**
-
-if type="sql"
-
    ```sql
-   <copy>
    -- Update customer name in one place
    UPDATE customers_referenced
-   SET json_document = JSON_MERGEPATCH(
-     json_document,
+   SET data = JSON_MERGEPATCH(
+     data,
      '{"name": "Alice Smith-Johnson"}'
    )
-   WHERE JSON_VALUE(json_document, '$._id') = 'CUST-456';
+   WHERE JSON_VALUE(data, '$._id') = 'CUST-456';
 
    COMMIT;
-   </copy>
    ```
-
-   Expected output:
-   ```
-   1 row updated.
-
-   Commit complete.
-   ```
-
-/if
-
-   **SODA Approach:**
-
-if type="soda"
-
-   ```sql
-   <copy>
-   DECLARE
-     collection SODA_COLLECTION_T;
-     doc SODA_DOCUMENT_T;
-     doc_content CLOB;
-     merged_content CLOB;
-     status NUMBER;
-   BEGIN
-     collection := DBMS_SODA.OPEN_COLLECTION('customers_referenced');
-
-     -- Get the existing document
-     doc := collection.find().key('CUST-456').get_one();
-
-     IF doc IS NOT NULL THEN
-       doc_content := doc.get_clob();
-
-       -- Merge the patch using SQL
-       SELECT JSON_MERGEPATCH(doc_content, '{"name": "Alice Smith-Johnson"}')
-       INTO merged_content
-       FROM DUAL;
-
-       -- Replace with merged document
-       status := collection.find().key('CUST-456').replace_one(
-         SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
-       );
-
-       IF status = 1 THEN
-         DBMS_OUTPUT.PUT_LINE('1 row updated.');
-         DBMS_OUTPUT.PUT_LINE('');
-         DBMS_OUTPUT.PUT_LINE('Commit complete.');
-       END IF;
-
-       COMMIT;
-     END IF;
-   END;
-   /
-   </copy>
-   ```
-
-   Expected output:
-   ```
-   1 row updated.
-
-   Commit complete.
-
-   PL/SQL procedure successfully completed.
-   ```
-
-/if
 
    **Impact:** Only 1 document updated, all orders automatically reflect new name on next query.
 
 ### The Trade-Off
 
 **Embedded Pattern:**
-- ❌ Updates affect multiple documents (write amplification)
-- ✅ Reads are fast (no joins)
-- ✅ Historical accuracy (order shows name at time of order)
+- Updates affect multiple documents (write amplification)
+- Reads are fast (no joins)
+- Historical accuracy (order shows name at time of order)
 
 **Referenced Pattern:**
-- ✅ Updates affect single document
-- ❌ Reads require joins (slower)
-- ❌ No historical accuracy (order always shows current name)
+- Updates affect single document
+- Reads require joins (slower)
+- No historical accuracy (order always shows current name)
 
 **Best Practice for Embedded:**
 
@@ -1693,13 +903,13 @@ This indicates the data is a historical snapshot, not a live reference.
 
 In this lab, you learned:
 
-* ✅ The two fundamental patterns: Embedded and Referenced
-* ✅ Embedded pattern stores related data together (denormalized)
-* ✅ Referenced pattern stores data separately with foreign keys (normalized)
-* ✅ Embedded pattern is 3-4x faster for reads but uses more storage
-* ✅ Decision criteria based on access patterns, array size, and update frequency
-* ✅ Most applications use hybrid approach (both patterns)
-* ✅ Understanding trade-offs: performance vs consistency vs storage
+* The two fundamental patterns: Embedded and Referenced
+* Embedded pattern stores related data together (denormalized)
+* Referenced pattern stores data separately with foreign keys (normalized)
+* Embedded pattern is 3-4x faster for reads but uses more storage
+* Decision criteria based on access patterns, array size, and update frequency
+* Most applications use hybrid approach (both patterns)
+* Understanding trade-offs: performance vs consistency vs storage
 
 **Key Takeaways:**
 
@@ -1713,13 +923,13 @@ You are now ready for **Lab 3: Single Collection/Table Design**, where you will 
 
 ## Learn More
 
+* [Oracle AI Database 26ai JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/)
 * [MongoDB Embedded vs Referenced Patterns](https://www.mongodb.com/docs/manual/data-modeling/)
 * [DynamoDB One-to-Many Relationships](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-modeling-nosql.html)
-* [Oracle JSON Collections Performance](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/performance-tuning-for-json.html)
 * [AWS DynamoDB Data Modeling](https://aws.amazon.com/dynamodb/resources/)
 
 ## Acknowledgements
 
 * **Author** - Rick Houlihan
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
-* **Last Updated By/Date** - Rick Houlihan, November 2024
+* **Last Updated By/Date** - Rick Houlihan, November 2025

@@ -38,170 +38,70 @@ Performance Tier         Size Range              Performance    Storage Location
 🚫 ERROR                 > 32MB                  Not allowed    N/A (hard limit)
 ```
 
-**Performance Characteristics:**
+### Step 2: Create Test Collection
 
 ```sql
--- Create test collection
-CREATE TABLE perf_test (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
+-- Create JSON Collection Table for performance testing
+CREATE JSON COLLECTION TABLE perf_test;
+
+-- Create index on _id
+CREATE INDEX idx_perf_id ON perf_test (JSON_VALUE(data, '$._id'));
 ```
 
-**Expected output:**
-```
-Table created.
-```
-
-**SQL Approach:**
-
-if type="sql"
+### Step 3: Insert Test Documents
 
 ```sql
-<copy>
--- Test 1: Inline document (< 7,950 bytes)
--- Insert time: ~0.5-1ms
--- Read time: ~1-2ms
-INSERT INTO perf_test (json_document) VALUES (
+-- Test 1: Small inline document (< 7,950 bytes)
+INSERT INTO perf_test (data) VALUES (
   JSON_OBJECT(
-    '_id' VALUE 'DOC-INLINE',
+    '_id' VALUE 'DOC-INLINE-SMALL',
     'type' VALUE 'small',
-    'data' VALUE RPAD('x', 3000, 'x')  -- 3KB document (under RPAD 4000 char limit)
+    'data' VALUE RPAD('x', 3000, 'x')
   )
 );
 
--- Test 2: Small document approaching inline threshold
--- Insert time: ~0.5-1ms
--- Read time: ~1-2ms
-INSERT INTO perf_test (json_document) VALUES (
+-- Test 2: Medium inline document (approaching threshold)
+INSERT INTO perf_test (data) VALUES (
   JSON_OBJECT(
-    '_id' VALUE 'DOC-NEAR-THRESHOLD',
+    '_id' VALUE 'DOC-INLINE-MEDIUM',
     'type' VALUE 'medium',
-    'data' VALUE RPAD('x', 3900, 'x')  -- ~3.9KB document (still inline, near RPAD limit)
+    'data' VALUE RPAD('x', 3900, 'x')
   )
 );
 
 COMMIT;
-</copy>
 ```
 
-Expected output:
-```
-1 row created.
-1 row created.
-Commit complete.
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
+### Step 4: Measure Document Sizes and Storage Tier
 
 ```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-  v_data VARCHAR2(4000);
-  total_inserted NUMBER := 0;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('perf_test');
-
-  -- Test 1: Inline document (< 7,950 bytes)
-  v_data := RPAD('x', 3000, 'x');
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "DOC-INLINE",
-        "type": "small",
-        "data": "' || v_data || '"
-      }')
-    )
-  );
-  total_inserted := total_inserted + status;
-  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
-
-  -- Test 2: Small document approaching inline threshold
-  v_data := RPAD('x', 3900, 'x');
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "DOC-NEAR-THRESHOLD",
-        "type": "medium",
-        "data": "' || v_data || '"
-      }')
-    )
-  );
-  total_inserted := total_inserted + status;
-  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
-
-  DBMS_OUTPUT.PUT_LINE('Commit complete.');
-  COMMIT;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row created.
-1 row created.
-Commit complete.
-
-PL/SQL procedure successfully completed.
-```
-
-/if
-
-```sql
-/*
-Note: RPAD in Oracle has a 4000 character limit. For testing larger documents (100KB, 15MB),
-you would need to:
-1. Use CLOB with TO_CLOB() and concatenation
-2. Load data from files using DBMS_LOB
-3. Generate large JSON arrays with loops
-
-Example for production testing of LOB sizes:
-- 100KB document: Use arrays with 2000+ nested objects
-- 15MB document: Use bulk data loading techniques
-
-The size thresholds remain:
-- Inline (< 7,950 bytes): Optimal performance (~1-2ms reads)
-- LOB (7,950 bytes - 10MB): Good performance (~5-10ms reads)
-- Large LOB (10MB - 32MB): Slower performance (~100-200ms reads)
-*/
-
--- Measure document sizes and storage tier
+-- Measure document sizes and determine storage tier
 SELECT
-  JSON_VALUE(json_document, '$._id') AS doc_id,
-  JSON_VALUE(json_document, '$.type') AS doc_type,
-  LENGTHB(json_document) AS size_bytes,
-  ROUND(LENGTHB(json_document) / 1024, 2) AS size_kb,
+  JSON_VALUE(data, '$._id') AS doc_id,
+  JSON_VALUE(data, '$.type') AS doc_type,
+  LENGTHB(data) AS size_bytes,
+  ROUND(LENGTHB(data) / 1024, 2) AS size_kb,
   CASE
-    WHEN LENGTHB(json_document) < 7950 THEN '✅ INLINE (Optimal)'
-    WHEN LENGTHB(json_document) < 10485760 THEN '⚠️ LOB (Good)'
-    WHEN LENGTHB(json_document) < 33554432 THEN '❌ LARGE LOB (Slow)'
-    ELSE '🚫 ERROR (Too Large)'
+    WHEN LENGTHB(data) < 7950 THEN 'INLINE (Optimal)'
+    WHEN LENGTHB(data) < 10485760 THEN 'LOB (Good)'
+    WHEN LENGTHB(data) < 33554432 THEN 'LARGE LOB (Slow)'
+    ELSE 'ERROR (Too Large)'
   END AS storage_tier
 FROM perf_test
-ORDER BY LENGTHB(json_document);
+ORDER BY LENGTHB(data);
 ```
 
-**Expected output:**
+Expected output:
 ```
 DOC_ID              DOC_TYPE  SIZE_BYTES  SIZE_KB   STORAGE_TIER
 ------------------  --------  ----------  --------  -------------------
-DOC-INLINE          small     3067        3.00      INLINE (Optimal)
-DOC-NEAR-THRESHOLD  medium    3967        3.87      INLINE (Optimal)
+DOC-INLINE-SMALL    small         3067      3.00    INLINE (Optimal)
+DOC-INLINE-MEDIUM   medium        3967      3.87    INLINE (Optimal)
 ```
 
-
-### Step 2: Performance Impact of Inline Storage
+### Step 5: Benchmark Read Performance
 
 ```sql
--- Benchmark read performance for inline documents
 SET SERVEROUTPUT ON;
 
 DECLARE
@@ -212,28 +112,28 @@ DECLARE
   v_iterations NUMBER := 100;
   v_total_duration NUMBER;
 BEGIN
-  -- Test small inline document reads (3KB)
+  -- Test small inline document reads
   v_total_duration := 0;
   FOR i IN 1..v_iterations LOOP
     v_start := SYSTIMESTAMP;
-    SELECT JSON_SERIALIZE(json_document)
+    SELECT JSON_SERIALIZE(data)
     INTO v_data
     FROM perf_test
-    WHERE JSON_VALUE(json_document, '$._id') = 'DOC-INLINE';
+    WHERE JSON_VALUE(data, '$._id') = 'DOC-INLINE-SMALL';
     v_end := SYSTIMESTAMP;
     v_duration := EXTRACT(SECOND FROM (v_end - v_start)) * 1000;
     v_total_duration := v_total_duration + v_duration;
   END LOOP;
   DBMS_OUTPUT.PUT_LINE('INLINE (3KB): ' || ROUND(v_total_duration / v_iterations, 2) || ' ms avg');
 
-  -- Test near-threshold inline document reads (3.9KB)
+  -- Test medium inline document reads
   v_total_duration := 0;
   FOR i IN 1..v_iterations LOOP
     v_start := SYSTIMESTAMP;
-    SELECT JSON_SERIALIZE(json_document)
+    SELECT JSON_SERIALIZE(data)
     INTO v_data
     FROM perf_test
-    WHERE JSON_VALUE(json_document, '$._id') = 'DOC-NEAR-THRESHOLD';
+    WHERE JSON_VALUE(data, '$._id') = 'DOC-INLINE-MEDIUM';
     v_end := SYSTIMESTAMP;
     v_duration := EXTRACT(SECOND FROM (v_end - v_start)) * 1000;
     v_total_duration := v_total_duration + v_duration;
@@ -241,19 +141,17 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE('INLINE (3.9KB): ' || ROUND(v_total_duration / v_iterations, 2) || ' ms avg');
 END;
 /
+```
 
-/*
-Expected Output:
+Expected output:
+```
 INLINE (3KB): ~1-2 ms avg
 INLINE (3.9KB): ~1-2 ms avg
 
 Key Insight:
-- Both documents remain in INLINE storage for optimal performance
 - Inline documents typically read in 1-2ms
 - Once documents exceed 7,950 bytes, they move to LOB storage (~5-10ms)
 - Large LOB documents over 10MB can take 100-200ms to read
-- Keep frequently-accessed documents under 7,950 bytes when possible
-*/
 ```
 
 ## Task 2: Identifying LOB Cliff Candidates
@@ -263,32 +161,17 @@ Key Insight:
 ```sql
 -- Create comprehensive monitoring query
 SELECT
-  JSON_VALUE(json_document, '$.type') AS document_type,
+  JSON_VALUE(data, '$.type') AS document_type,
   COUNT(*) AS document_count,
-  ROUND(AVG(LENGTHB(json_document)), 0) AS avg_size_bytes,
-  ROUND(MIN(LENGTHB(json_document)), 0) AS min_size_bytes,
-  ROUND(MAX(LENGTHB(json_document)), 0) AS max_size_bytes,
-  ROUND(STDDEV(LENGTHB(json_document)), 0) AS stddev_size,
-  SUM(CASE WHEN LENGTHB(json_document) < 7950 THEN 1 ELSE 0 END) AS inline_count,
-  SUM(CASE WHEN LENGTHB(json_document) >= 7950 AND LENGTHB(json_document) < 10485760 THEN 1 ELSE 0 END) AS lob_count,
-  SUM(CASE WHEN LENGTHB(json_document) >= 10485760 THEN 1 ELSE 0 END) AS large_lob_count
+  ROUND(AVG(LENGTHB(data)), 0) AS avg_size_bytes,
+  ROUND(MIN(LENGTHB(data)), 0) AS min_size_bytes,
+  ROUND(MAX(LENGTHB(data)), 0) AS max_size_bytes,
+  SUM(CASE WHEN LENGTHB(data) < 7950 THEN 1 ELSE 0 END) AS inline_count,
+  SUM(CASE WHEN LENGTHB(data) >= 7950 AND LENGTHB(data) < 10485760 THEN 1 ELSE 0 END) AS lob_count,
+  SUM(CASE WHEN LENGTHB(data) >= 10485760 THEN 1 ELSE 0 END) AS large_lob_count
 FROM perf_test
-GROUP BY JSON_VALUE(json_document, '$.type')
-ORDER BY MAX(LENGTHB(json_document)) DESC;
-
-/*
-Expected Result:
-DOCUMENT_TYPE  DOCUMENT_COUNT  AVG_SIZE_BYTES  MIN_SIZE_BYTES  MAX_SIZE_BYTES  STDDEV_SIZE  INLINE_COUNT  LOB_COUNT  LARGE_LOB_COUNT
--------------  --------------  --------------  --------------  --------------  -----------  ------------  ---------  ---------------
-large          1               15000343        15000343        15000343        0            0             0          1
-medium         1               100343          100343          100343          0            0             1          0
-small          1               5243            5243            5243            0            1             0          0
-
-Insights:
-- 33% of documents in optimal inline storage
-- 33% crossed into LOB tier
-- 33% crossed into LARGE LOB tier (performance cliff!)
-*/
+GROUP BY JSON_VALUE(data, '$.type')
+ORDER BY MAX(LENGTHB(data)) DESC;
 ```
 
 ### Step 2: Find Documents Approaching Limits
@@ -296,123 +179,50 @@ Insights:
 ```sql
 -- Identify documents at risk of crossing thresholds
 SELECT
-  JSON_VALUE(json_document, '$._id') AS doc_id,
-  JSON_VALUE(json_document, '$.type') AS doc_type,
-  LENGTHB(json_document) AS size_bytes,
-  ROUND(LENGTHB(json_document) / 1024, 2) AS size_kb,
+  JSON_VALUE(data, '$._id') AS doc_id,
+  JSON_VALUE(data, '$.type') AS doc_type,
+  LENGTHB(data) AS size_bytes,
+  ROUND(LENGTHB(data) / 1024, 2) AS size_kb,
   CASE
-    WHEN LENGTHB(json_document) >= 7000 AND LENGTHB(json_document) < 7950 THEN '⚠️ Near inline limit'
-    WHEN LENGTHB(json_document) >= 9437184 AND LENGTHB(json_document) < 10485760 THEN '⚠️ Near LOB cliff (9MB)'
-    WHEN LENGTHB(json_document) >= 30408704 THEN '🚨 Near hard limit (29MB)'
-    WHEN LENGTHB(json_document) >= 7950 THEN '❌ Already in LOB'
-    ELSE '✅ Optimal size'
+    WHEN LENGTHB(data) >= 7000 AND LENGTHB(data) < 7950 THEN 'Near inline limit (7KB)'
+    WHEN LENGTHB(data) >= 9437184 AND LENGTHB(data) < 10485760 THEN 'Near LOB cliff (9MB)'
+    WHEN LENGTHB(data) >= 30408704 THEN 'Near hard limit (29MB)'
+    WHEN LENGTHB(data) >= 7950 THEN 'Already in LOB'
+    ELSE 'Optimal size'
   END AS status
 FROM perf_test
-WHERE LENGTHB(json_document) >= 7000
-   OR LENGTHB(json_document) >= 7950
-ORDER BY LENGTHB(json_document) DESC;
-
-/*
-This query identifies:
-- Documents near 7,950 byte inline limit
-- Documents near 10MB LOB cliff
-- Documents near 32MB hard limit
-*/
+WHERE LENGTHB(data) >= 3000
+ORDER BY LENGTHB(data) DESC;
 ```
 
 ## Task 3: Document Splitting Strategies
 
-### Step 1: Vertical Splitting (Frequently vs Rarely Accessed Fields)
+### Step 1: Vertical Splitting (Hot vs Cold Data)
+
+The anti-pattern is a single large document with all fields:
 
 ```sql
--- ❌ Anti-Pattern: Single large document with all fields
--- This customer document is 250KB because it includes full order history
-
-CREATE TABLE customers_bad (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-
-**SQL Approach:**
-
-if type="sql"
-
-```sql
-<copy>
-INSERT INTO customers_bad (json_document) VALUES (
-  JSON_OBJECT(
-    '_id' VALUE 'CUSTOMER#456',
-    'type' VALUE 'customer',
-    'name' VALUE 'John Doe',
-    'email' VALUE 'john@example.com',
-    -- Frequently accessed fields above
-
-    -- Rarely accessed fields below (making document huge)
-    'full_order_history' VALUE JSON_ARRAY(
-      /* 5,000 orders = 250KB */
-    ),
-    'full_payment_history' VALUE JSON_ARRAY(
-      /* 5,000 payments = 200KB */
-    )
-  )
-);
-</copy>
+-- Create collection for split example
+CREATE JSON COLLECTION TABLE customer_split;
+CREATE INDEX idx_customer_split_id ON customer_split (JSON_VALUE(data, '$._id'));
 ```
 
-/if
-
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('customers_bad');
-
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "CUSTOMER#456",
-        "type": "customer",
-        "name": "John Doe",
-        "email": "john@example.com",
-        "full_order_history": [],
-        "full_payment_history": []
-      }')
-    )
-  );
-
-  IF status = 1 THEN
-    DBMS_OUTPUT.PUT_LINE('Anti-pattern document created (would be 450KB with full history)');
-  END IF;
-END;
-/
-</copy>
+**Anti-Pattern: All data in one document (would be 450KB)**:
+```json
+{
+  "_id": "CUSTOMER#456",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "full_order_history": [/* 5,000 orders = 250KB */],
+  "full_payment_history": [/* 5,000 payments = 200KB */]
+}
 ```
 
-/if
-
--- ✅ Solution: Vertical Split - Separate hot and cold data
-
-CREATE TABLE customers_good (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-
-**SQL Approach:**
-
-if type="sql"
+**Solution: Vertical Split - Separate hot and cold data**:
 
 ```sql
-<copy>
--- Hot data: Frequently accessed (stays small)
-INSERT INTO customers_good (json_document) VALUES (
+-- Hot data: Frequently accessed (stays small, INLINE)
+INSERT INTO customer_split (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'CUSTOMER#456',
     'type' VALUE 'customer',
@@ -424,173 +234,62 @@ INSERT INTO customers_good (json_document) VALUES (
       'lifetime_value' VALUE 125000,
       'last_order_date' VALUE '2024-11-18'
     ),
-    -- Recent orders only (for dashboard)
     'recent_orders' VALUE JSON_ARRAY(
-      /* Last 10 orders only = 3KB */
+      JSON_OBJECT('order_id' VALUE 'ORD-4999', 'total' VALUE 89.99),
+      JSON_OBJECT('order_id' VALUE 'ORD-5000', 'total' VALUE 125.50)
     )
   )
 );
--- Document size: 5KB ✅ INLINE
+-- Document size: ~1KB - INLINE (Optimal)
 
--- Cold data: Full order history (separate document)
-INSERT INTO customers_good (json_document) VALUES (
+-- Cold data: Full order archive (separate document, accessed rarely)
+INSERT INTO customer_split (data) VALUES (
   JSON_OBJECT(
-    '_id' VALUE 'CUSTOMER#456#ORDERS#ARCHIVE',
+    '_id' VALUE 'CUSTOMER#456#ARCHIVE',
     'type' VALUE 'order_archive',
     'customer_id' VALUE 'CUSTOMER#456',
-    'orders' VALUE JSON_ARRAY(
-      /* 5,000 orders */
+    'summary' VALUE JSON_OBJECT(
+      'total_archived_orders' VALUE 4998,
+      'archive_date' VALUE SYSTIMESTAMP
     )
   )
 );
--- Document size: 250KB ⚠️ LOB (but rarely accessed)
-</copy>
+-- Archive document with summary only: ~500 bytes - INLINE
+
+COMMIT;
+
+-- Verify sizes
+SELECT
+  JSON_VALUE(data, '$._id') AS doc_id,
+  JSON_VALUE(data, '$.type') AS doc_type,
+  LENGTHB(data) AS size_bytes,
+  CASE WHEN LENGTHB(data) < 7950 THEN 'INLINE' ELSE 'LOB' END AS storage
+FROM customer_split;
 ```
 
-Result:
-- Hot path query: 2ms (inline document)
-- Cold path query (rare): 50ms (LOB document, but acceptable for rare access)
+**Result:**
+- Hot path query (customer profile): ~2ms (inline document)
+- Cold path query (full archive): Only when needed
 
-/if
+### Step 2: Horizontal Splitting (Using Composite Keys)
 
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('customers_good');
-
-  -- Hot data: Frequently accessed (stays small)
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "CUSTOMER#456",
-        "type": "customer",
-        "name": "John Doe",
-        "email": "john@example.com",
-        "tier": "gold",
-        "stats": {
-          "total_orders": 5000,
-          "lifetime_value": 125000,
-          "last_order_date": "2024-11-18"
-        },
-        "recent_orders": []
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE(status || ' row created (hot data, 5KB INLINE)');
-
-  -- Cold data: Full order history (separate document)
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "CUSTOMER#456#ORDERS#ARCHIVE",
-        "type": "order_archive",
-        "customer_id": "CUSTOMER#456",
-        "orders": []
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE(status || ' row created (cold data archive)');
-
-  DBMS_OUTPUT.PUT_LINE('');
-  DBMS_OUTPUT.PUT_LINE('Result:');
-  DBMS_OUTPUT.PUT_LINE('- Hot path query: 2ms (inline document)');
-  DBMS_OUTPUT.PUT_LINE('- Cold path query (rare): 50ms (LOB document, but acceptable for rare access)');
-END;
-/
-</copy>
+**Anti-Pattern: Unbounded array grows forever**:
+```json
+{
+  "_id": "USER#123",
+  "all_posts": [/* grows forever, eventually exceeds 32MB */]
+}
 ```
 
-/if
-```
-
-### Step 2: Horizontal Splitting (Array Pagination)
+**Solution: Separate documents with composite keys (from Lab 3)**:
 
 ```sql
--- ❌ Anti-Pattern: Unbounded array grows forever
+-- Create collection for social example
+CREATE JSON COLLECTION TABLE social_split;
+CREATE INDEX idx_social_id ON social_split (JSON_VALUE(data, '$._id'));
 
-CREATE TABLE social_bad (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-
-**SQL Approach:**
-
-if type="sql"
-
-```sql
-<copy>
-INSERT INTO social_bad (json_document) VALUES (
-  JSON_OBJECT(
-    '_id' VALUE 'USER#123',
-    'type' VALUE 'user',
-    'name' VALUE 'Jane Smith',
-    'all_posts' VALUE JSON_ARRAY(
-      /* 10,000 posts = 50MB - EXCEEDS 32MB LIMIT! */
-    )
-  )
-);
-</copy>
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('social_bad');
-
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "USER#123",
-        "type": "user",
-        "name": "Jane Smith",
-        "all_posts": []
-      }')
-    )
-  );
-
-  IF status = 1 THEN
-    DBMS_OUTPUT.PUT_LINE('Anti-pattern document created (would exceed 32MB limit with full posts)');
-  END IF;
-END;
-/
-</copy>
-```
-
-/if
-
--- ✅ Solution: Horizontal Split with Composite Keys (from Lab 3)
-
-CREATE TABLE social_good (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-
-**SQL Approach:**
-
-if type="sql"
-
-```sql
-<copy>
 -- User document (small, frequently accessed)
-INSERT INTO social_good (json_document) VALUES (
+INSERT INTO social_split (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'USER#123',
     'type' VALUE 'user',
@@ -601,120 +300,68 @@ INSERT INTO social_good (json_document) VALUES (
     )
   )
 );
--- Document size: 1KB ✅ INLINE
+-- Document size: ~200 bytes - INLINE
 
 -- Each post is a separate document
-INSERT INTO social_good (json_document) VALUES (
+INSERT INTO social_split (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'USER#123#POST#001',
     'type' VALUE 'post',
     'user_id' VALUE 'USER#123',
-    'user_name' VALUE 'Jane Smith',  -- Denormalized
+    'user_name' VALUE 'Jane Smith',
     'content' VALUE 'My first post!',
     'created_at' VALUE SYSTIMESTAMP
   )
 );
--- Document size: 500 bytes ✅ INLINE
-</copy>
-```
 
-/if
+INSERT INTO social_split (data) VALUES (
+  JSON_OBJECT(
+    '_id' VALUE 'USER#123#POST#002',
+    'type' VALUE 'post',
+    'user_id' VALUE 'USER#123',
+    'user_name' VALUE 'Jane Smith',
+    'content' VALUE 'Another post!',
+    'created_at' VALUE SYSTIMESTAMP
+  )
+);
+-- Each post: ~300 bytes - INLINE
 
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('social_good');
-
-  -- User document (small, frequently accessed)
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "USER#123",
-        "type": "user",
-        "name": "Jane Smith",
-        "stats": {
-          "post_count": 10000,
-          "follower_count": 5420
-        }
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE(status || ' row created (user, 1KB INLINE)');
-
-  -- Each post is a separate document
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "USER#123#POST#001",
-        "type": "post",
-        "user_id": "USER#123",
-        "user_name": "Jane Smith",
-        "content": "My first post!",
-        "created_at": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE(status || ' row created (post, 500 bytes INLINE)');
-END;
-/
-</copy>
-```
-
-/if
+COMMIT;
 
 -- Query user's recent posts using composite key prefix
-SELECT JSON_QUERY(json_document, '$')
-FROM social_good
-WHERE JSON_VALUE(json_document, '$._id') LIKE 'USER#123#POST#%'
-ORDER BY JSON_VALUE(json_document, '$.created_at' RETURNING TIMESTAMP) DESC
+SELECT JSON_SERIALIZE(data PRETTY)
+FROM social_split
+WHERE JSON_VALUE(data, '$._id') LIKE 'USER#123#POST#%'
+ORDER BY JSON_VALUE(data, '$.created_at') DESC
 FETCH FIRST 20 ROWS ONLY;
-
--- Result:
--- - Each post: 500 bytes ✅ INLINE
--- - Can scale to millions of posts
--- - Query performance: 5-10ms for paginated results
 ```
+
+**Benefits:**
+- Each post: ~300 bytes (INLINE)
+- Can scale to millions of posts
+- Query performance: 5-10ms for paginated results
 
 ### Step 3: Time-Based Archiving
 
 ```sql
--- ✅ Solution: Archive old data to separate documents
+-- Create collection for logs example
+CREATE JSON COLLECTION TABLE logs_archive;
+CREATE INDEX idx_logs_id ON logs_archive (JSON_VALUE(data, '$._id'));
 
-CREATE TABLE logs_with_archive (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-
-**SQL Approach:**
-
-if type="sql"
-
-```sql
-<copy>
 -- Active logs (current month)
-INSERT INTO logs_with_archive (json_document) VALUES (
+INSERT INTO logs_archive (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'LOGS#app-server-01#2024-11',
     'type' VALUE 'active_logs',
     'server_id' VALUE 'app-server-01',
     'month' VALUE '2024-11',
-    'log_entries' VALUE JSON_ARRAY(
-      /* Current month logs = 150KB */
-    )
+    'log_count' VALUE 1500,
+    'last_entry' VALUE SYSTIMESTAMP
   )
 );
--- Document size: 150KB ⚠️ LOB (but acceptable)
 
--- Archived logs (previous months)
-INSERT INTO logs_with_archive (json_document) VALUES (
+-- Archived logs (previous months - summary only)
+INSERT INTO logs_archive (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'LOGS#app-server-01#2024-10#ARCHIVE',
     'type' VALUE 'archived_logs',
@@ -726,65 +373,11 @@ INSERT INTO logs_with_archive (json_document) VALUES (
       'error_count' VALUE 42,
       'warning_count' VALUE 256
     )
-    -- Full logs moved to cold storage or compressed
   )
 );
--- Document size: 2KB ✅ INLINE (summary only)
-</copy>
-```
+-- Archive document: ~500 bytes - INLINE (summary only)
 
-/if
-
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('logs_with_archive');
-
-  -- Active logs (current month)
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "LOGS#app-server-01#2024-11",
-        "type": "active_logs",
-        "server_id": "app-server-01",
-        "month": "2024-11",
-        "log_entries": []
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE(status || ' row created (active logs, would be 150KB LOB)');
-
-  -- Archived logs (previous months)
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "LOGS#app-server-01#2024-10#ARCHIVE",
-        "type": "archived_logs",
-        "server_id": "app-server-01",
-        "month": "2024-10",
-        "archived_date": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '",
-        "log_summary": {
-          "total_entries": 45230,
-          "error_count": 42,
-          "warning_count": 256
-        }
-      }')
-    )
-  );
-  DBMS_OUTPUT.PUT_LINE(status || ' row created (archived summary, 2KB INLINE)');
-END;
-/
-</copy>
-```
-
-/if
+COMMIT;
 ```
 
 ## Task 4: Real-Time Monitoring and Alerting
@@ -795,86 +388,93 @@ END;
 -- Create view for document size monitoring
 CREATE OR REPLACE VIEW v_document_size_monitor AS
 SELECT
-  JSON_VALUE(json_document, '$._id') AS doc_id,
-  JSON_VALUE(json_document, '$.type') AS doc_type,
-  LENGTHB(json_document) AS size_bytes,
-  ROUND(LENGTHB(json_document) / 1024, 2) AS size_kb,
-  ROUND(LENGTHB(json_document) / 1048576, 2) AS size_mb,
+  JSON_VALUE(data, '$._id') AS doc_id,
+  JSON_VALUE(data, '$.type') AS doc_type,
+  LENGTHB(data) AS size_bytes,
+  ROUND(LENGTHB(data) / 1024, 2) AS size_kb,
+  ROUND(LENGTHB(data) / 1048576, 4) AS size_mb,
   CASE
-    WHEN LENGTHB(json_document) < 7950 THEN 'INLINE'
-    WHEN LENGTHB(json_document) < 10485760 THEN 'LOB'
-    WHEN LENGTHB(json_document) < 33554432 THEN 'LARGE_LOB'
+    WHEN LENGTHB(data) < 7950 THEN 'INLINE'
+    WHEN LENGTHB(data) < 10485760 THEN 'LOB'
+    WHEN LENGTHB(data) < 33554432 THEN 'LARGE_LOB'
     ELSE 'TOO_LARGE'
   END AS storage_tier,
   CASE
-    WHEN LENGTHB(json_document) >= 30408704 THEN 'CRITICAL'  -- > 29MB
-    WHEN LENGTHB(json_document) >= 9437184 THEN 'WARNING'     -- > 9MB
-    WHEN LENGTHB(json_document) >= 7000 THEN 'INFO'           -- > 7KB
+    WHEN LENGTHB(data) >= 30408704 THEN 'CRITICAL'
+    WHEN LENGTHB(data) >= 9437184 THEN 'WARNING'
+    WHEN LENGTHB(data) >= 7000 THEN 'INFO'
     ELSE 'OK'
   END AS alert_level
 FROM perf_test;
 
 -- Query documents requiring attention
-SELECT *
-FROM v_document_size_monitor
-WHERE alert_level IN ('WARNING', 'CRITICAL')
+SELECT * FROM v_document_size_monitor
+WHERE alert_level IN ('WARNING', 'CRITICAL', 'INFO')
 ORDER BY size_bytes DESC;
 ```
 
-### Step 2: Create Alert Trigger
+### Step 2: Create Size Check Function
 
 ```sql
--- Trigger to prevent insertion of documents exceeding size thresholds
-CREATE OR REPLACE TRIGGER trg_prevent_large_documents
-BEFORE INSERT OR UPDATE ON perf_test
-FOR EACH ROW
-DECLARE
+-- Function to check document size before insert
+CREATE OR REPLACE FUNCTION check_document_size(
+  p_doc JSON,
+  p_max_kb NUMBER DEFAULT 500
+) RETURN VARCHAR2 IS
   v_size NUMBER;
-  v_doc_id VARCHAR2(200);
+  v_max_bytes NUMBER;
 BEGIN
-  v_size := LENGTHB(:NEW.json_document);
-  v_doc_id := JSON_VALUE(:NEW.json_document, '$._id');
+  v_size := LENGTHB(p_doc);
+  v_max_bytes := p_max_kb * 1024;
 
-  -- Block documents over 29MB (leave buffer before 32MB hard limit)
   IF v_size > 30408704 THEN
-    RAISE_APPLICATION_ERROR(
-      -20001,
-      'Document ' || v_doc_id || ' exceeds 29MB limit: ' || ROUND(v_size / 1048576, 2) || 'MB. ' ||
-      'Please split this document into smaller documents.'
-    );
-  END IF;
-
-  -- Warn on documents over 10MB (crossed LOB cliff)
-  IF v_size > 10485760 THEN
-    DBMS_OUTPUT.PUT_LINE('WARNING: Document ' || v_doc_id || ' is ' ||
-                         ROUND(v_size / 1048576, 2) || 'MB (crossed LOB cliff). Consider splitting.');
+    RETURN 'ERROR: Document exceeds 29MB safety limit (' || ROUND(v_size/1048576, 2) || 'MB)';
+  ELSIF v_size > 10485760 THEN
+    RETURN 'WARNING: Document crossed LOB cliff (' || ROUND(v_size/1048576, 2) || 'MB)';
+  ELSIF v_size > v_max_bytes THEN
+    RETURN 'INFO: Document exceeds recommended ' || p_max_kb || 'KB limit (' || ROUND(v_size/1024, 2) || 'KB)';
+  ELSE
+    RETURN 'OK: ' || ROUND(v_size/1024, 2) || 'KB';
   END IF;
 END;
 /
 
--- Test the trigger
-BEGIN
-  -- This should fail
-  INSERT INTO perf_test (json_document) VALUES (
-    JSON_OBJECT(
-      '_id' VALUE 'DOC-TOO-LARGE',
-      'data' VALUE RPAD('x', 31000000, 'x')  -- 31MB
-    )
-  );
-EXCEPTION
-  WHEN OTHERS THEN
-    DBMS_OUTPUT.PUT_LINE('Trigger blocked large document: ' || SQLERRM);
-END;
-/
+-- Test the function
+SELECT check_document_size(data) AS size_check
+FROM perf_test;
 ```
 
-## Task 5: Architectural Patterns to Prevent Unbounded Growth
+### Step 3: Monitor All Collections
 
-### Step 1: Design Checklist
+```sql
+-- Query to monitor all JSON collections in the schema
+SELECT
+  table_name,
+  COUNT(*) AS doc_count,
+  ROUND(AVG(LENGTHB(data)), 0) AS avg_size_bytes,
+  ROUND(MAX(LENGTHB(data)), 0) AS max_size_bytes,
+  SUM(CASE WHEN LENGTHB(data) < 7950 THEN 1 ELSE 0 END) AS inline_count,
+  SUM(CASE WHEN LENGTHB(data) >= 7950 THEN 1 ELSE 0 END) AS lob_count
+FROM (
+  SELECT 'PERF_TEST' AS table_name, data FROM perf_test
+  UNION ALL
+  SELECT 'CUSTOMER_SPLIT', data FROM customer_split
+  UNION ALL
+  SELECT 'SOCIAL_SPLIT', data FROM social_split
+  UNION ALL
+  SELECT 'LOGS_ARCHIVE', data FROM logs_archive
+)
+GROUP BY table_name
+ORDER BY max_size_bytes DESC;
+```
+
+## Task 5: Design Checklist for LOB Prevention
+
+### Document Size Prevention Checklist
 
 Use this checklist when designing your data model:
 
-**Document Size Prevention:**
+**Design Principles:**
 - [ ] No unbounded arrays in documents (use composite keys instead)
 - [ ] Limit embedded arrays to fixed maximum size (e.g., "recent 10 items")
 - [ ] Split hot data (frequently accessed) from cold data (rarely accessed)
@@ -882,40 +482,40 @@ Use this checklist when designing your data model:
 - [ ] Use bucketing pattern for time-series data (Lab 5)
 - [ ] Store computed aggregates instead of raw detail (Lab 4)
 
+**Size Guidelines:**
+- [ ] Keep hot-path documents under 5KB for optimal performance
+- [ ] Keep most documents under 100KB
+- [ ] Never design for documents that could exceed 10MB
+- [ ] Use composite keys for one-to-many relationships
+
 **Monitoring:**
 - [ ] Create view or query to monitor document sizes weekly
 - [ ] Set up alerts for documents exceeding 9MB (approaching cliff)
-- [ ] Implement trigger to block documents over 29MB
 - [ ] Track document growth trends over time
 
-**Testing:**
-- [ ] Load test with realistic data volumes
-- [ ] Simulate document growth over time (1 year, 5 years)
-- [ ] Verify documents stay under 500KB (ideally under 100KB)
+### Common Anti-Patterns to Avoid
 
-### Step 2: Common Unbounded Growth Patterns to Avoid
-
-```sql
--- ❌ AVOID: Unbounded activity log
+```
+❌ AVOID: Unbounded activity log
 {
   "_id": "USER#123",
   "activity_log": [/* grows forever */]
 }
 
--- ✅ SOLUTION: Use composite keys with time-based buckets (Lab 5)
+✅ SOLUTION: Time-based buckets (Lab 5)
 {
   "_id": "USER#123#ACTIVITY#2024-11-18",
   "type": "daily_activity",
   "activities": [/* max 1 day */]
 }
 
--- ❌ AVOID: All order history in customer document
+❌ AVOID: All order history in customer document
 {
   "_id": "CUSTOMER#456",
   "orders": [/* 10,000 orders = 50MB */]
 }
 
--- ✅ SOLUTION: Separate documents with composite keys (Lab 3)
+✅ SOLUTION: Separate documents with composite keys (Lab 3)
 {
   "_id": "CUSTOMER#456",
   "recent_orders": [/* last 10 only */]
@@ -925,13 +525,13 @@ Use this checklist when designing your data model:
   "type": "order"
 }
 
--- ❌ AVOID: Growing comments array
+❌ AVOID: Growing comments array
 {
   "_id": "POST#12345",
   "comments": [/* grows forever */]
 }
 
--- ✅ SOLUTION: Separate comment documents
+✅ SOLUTION: Separate comment documents
 {
   "_id": "POST#12345",
   "comment_count": 5420
@@ -942,12 +542,23 @@ Use this checklist when designing your data model:
 }
 ```
 
+## Task 6: Cleanup
+
+```sql
+-- Clean up test tables (optional)
+-- DROP TABLE perf_test PURGE;
+-- DROP TABLE customer_split PURGE;
+-- DROP TABLE social_split PURGE;
+-- DROP TABLE logs_archive PURGE;
+-- DROP VIEW v_document_size_monitor;
+```
+
 ## Conclusion
 
-In this lab, you learned how to identify and avoid the LOB performance cliff in Oracle JSON Collections.
+In this lab, you learned how to identify and avoid the LOB performance cliff in Oracle JSON Collection Tables.
 
 **Key Takeaways:**
-- ✅ Inline storage (< 7,950 bytes) is 100x faster than large LOB (> 10MB)
+- ✅ Inline storage (< 7,950 bytes) is significantly faster than LOB storage
 - ✅ The 10MB threshold is a dramatic performance cliff
 - ✅ Use vertical splitting (hot vs cold data) to keep hot path fast
 - ✅ Use horizontal splitting (composite keys) to prevent unbounded arrays
@@ -955,19 +566,19 @@ In this lab, you learned how to identify and avoid the LOB performance cliff in 
 - ✅ Design with fixed-size limits from the start (no unbounded growth)
 
 **OSON Performance Tiers:**
-- Inline (under 7,950 bytes): 1-2ms reads ✅ Optimal
-- LOB (7,950 bytes - 10MB): 5-10ms reads ⚠️ Good
-- Large LOB (over 10MB): 100-200ms reads ❌ Slow
+- Inline (< 7,950 bytes): 1-2ms reads - Optimal
+- LOB (7,950 bytes - 10MB): 5-10ms reads - Good
+- Large LOB (> 10MB): 100-200ms reads - Slow
 
 **Next Steps:**
-- Proceed to **Lab 8: Indexing Strategies for Single Collection** to optimize query performance
+- Proceed to **Lab 8: Indexing Strategies** to optimize query performance
 
 ## Learn More
 
-* [Oracle JSON Developer's Guide - OSON Format](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/oson-format.html)
-* [Oracle Database Performance Tuning Guide](https://docs.oracle.com/en/database/oracle/oracle-database/23/tgdba/)
+* [Oracle JSON Developer's Guide - OSON Format](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/oson-format.html)
+* [Oracle Database Performance Tuning Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/tgdba/)
 
 ## Acknowledgments
 
 * **Author** - Rick Houlihan
-* **Last Updated By/Date** - November 2024
+* **Last Updated By/Date** - November 2025

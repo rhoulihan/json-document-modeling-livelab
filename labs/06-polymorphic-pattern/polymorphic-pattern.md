@@ -58,32 +58,25 @@ The Polymorphic Pattern is already at the core of Single Collection design (from
 **Key Principle:**
 > **Use a `type` field as the discriminator to identify which schema/entity the document represents.**
 
-## Task 2: Advanced Polymorphic Scenarios
+## Task 2: Implementing Financial Transactions (Multiple Types)
 
-### Step 1: Financial Transactions (Multiple Transaction Types)
-
-```sql
--- Create transactions collection
-CREATE TABLE transactions (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
-```
-
-**Expected output:**
-```
-Table created.
-```
-
-**SQL Approach:**
-
-if type="sql"
+### Step 1: Create the Transactions Collection
 
 ```sql
-<copy>
+-- Create JSON Collection Table for transactions
+CREATE JSON COLLECTION TABLE transactions;
+
+-- Create indexes for polymorphic queries
+CREATE INDEX idx_transactions_id ON transactions (JSON_VALUE(data, '$._id'));
+CREATE INDEX idx_transactions_type ON transactions (JSON_VALUE(data, '$.type'));
+CREATE INDEX idx_transactions_account ON transactions (JSON_VALUE(data, '$.account_id'));
+```
+
+### Step 2: Insert Different Transaction Types
+
+```sql
 -- Type 1: Deposit
-INSERT INTO transactions (json_document) VALUES (
+INSERT INTO transactions (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'ACCOUNT#ACC-789#TXN#001',
     'type' VALUE 'deposit',
@@ -94,138 +87,9 @@ INSERT INTO transactions (json_document) VALUES (
     'timestamp' VALUE SYSTIMESTAMP
   )
 );
-</copy>
-```
 
-Expected output:
-```
-1 row created.
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('transactions');
-
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "ACCOUNT#ACC-789#TXN#001",
-        "type": "deposit",
-        "account_id": "ACC-789",
-        "amount": 1000.00,
-        "source": "wire_transfer",
-        "reference_number": "WIR-2024-123456",
-        "timestamp": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
-      }')
-    )
-  );
-
-  IF status = 1 THEN
-    DBMS_OUTPUT.PUT_LINE('1 row created.');
-  END IF;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row created.
-
-PL/SQL procedure successfully completed.
-```
-
-/if
-
-**MongoDB API Approach:**
-
-if type="mongodb"
-
-```javascript
-<copy>
-// Connect to Oracle using MongoDB API
-// mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
-
-use mydb
-
-// Type 1: Deposit transaction
-db.transactions.insertOne({
-  _id: "ACCOUNT#ACC-789#TXN#001",
-  type: "deposit",                    // Type discriminator
-  account_id: "ACC-789",
-  amount: 1000.00,
-  source: "wire_transfer",
-  reference_number: "WIR-2024-123456",
-  timestamp: new Date()
-})
-</copy>
-```
-
-Expected output:
-```javascript
-{
-  acknowledged: true,
-  insertedId: 'ACCOUNT#ACC-789#TXN#001'
-}
-```
-
-> **MongoDB API**: Type discriminator pattern is fundamental in MongoDB. The `type` field enables polymorphic collections where different document types coexist with different schemas.
-
-/if
-
-**REST API Approach:**
-
-if type="rest"
-
-```bash
-<copy>
-# Insert deposit transaction via REST
-curl -X POST \
-  "http://localhost:8080/ords/jsonuser/soda/latest/transactions" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "_id": "ACCOUNT#ACC-789#TXN#001",
-    "type": "deposit",
-    "account_id": "ACC-789",
-    "amount": 1000.00,
-    "source": "wire_transfer",
-    "reference_number": "WIR-2024-123456",
-    "timestamp": "2024-11-19T10:30:00Z"
-  }'
-</copy>
-```
-
-Expected output:
-```json
-{
-  "id": "...",
-  "etag": "...",
-  "lastModified": "2024-11-19T10:30:00.000Z"
-}
-```
-
-> **REST API**: Each transaction type is just JSON with a type field. APIs can route based on type for type-specific validation or processing.
-
-/if
-
-**SQL Approach:**
-
-if type="sql"
-
-```sql
-<copy>
 -- Type 2: Withdrawal
-INSERT INTO transactions (json_document) VALUES (
+INSERT INTO transactions (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'ACCOUNT#ACC-789#TXN#002',
     'type' VALUE 'withdrawal',
@@ -237,68 +101,9 @@ INSERT INTO transactions (json_document) VALUES (
     'timestamp' VALUE SYSTIMESTAMP
   )
 );
-</copy>
-```
 
-Expected output:
-```
-1 row created.
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('transactions');
-
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "ACCOUNT#ACC-789#TXN#002",
-        "type": "withdrawal",
-        "account_id": "ACC-789",
-        "amount": 250.00,
-        "method": "atm",
-        "atm_location": "Main St Branch",
-        "fee": 2.50,
-        "timestamp": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
-      }')
-    )
-  );
-
-  IF status = 1 THEN
-    DBMS_OUTPUT.PUT_LINE('1 row created.');
-  END IF;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row created.
-
-PL/SQL procedure successfully completed.
-```
-
-/if
-
-**SQL Approach:**
-
-if type="sql"
-
-```sql
-<copy>
 -- Type 3: Transfer
-INSERT INTO transactions (json_document) VALUES (
+INSERT INTO transactions (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'ACCOUNT#ACC-789#TXN#003',
     'type' VALUE 'transfer',
@@ -311,132 +116,39 @@ INSERT INTO transactions (json_document) VALUES (
 );
 
 COMMIT;
-</copy>
 ```
 
-Expected output:
-```
-1 row created.
-Commit complete.
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
+### Step 3: Query All Transactions for an Account
 
 ```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('transactions');
-
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "ACCOUNT#ACC-789#TXN#003",
-        "type": "transfer",
-        "from_account": "ACC-789",
-        "to_account": "ACC-456",
-        "amount": 500.00,
-        "memo": "Rent payment",
-        "timestamp": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
-      }')
-    )
-  );
-
-  IF status = 1 THEN
-    DBMS_OUTPUT.PUT_LINE('1 row created.');
-    DBMS_OUTPUT.PUT_LINE('');
-    DBMS_OUTPUT.PUT_LINE('Commit complete.');
-  END IF;
-
-  COMMIT;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row created.
-
-Commit complete.
-
-PL/SQL procedure successfully completed.
-```
-
-/if
-
-```sql
--- Query all transactions for an account
-SELECT JSON_QUERY(json_document, '$' PRETTY)
+-- Query all transactions for an account (all types)
+SELECT JSON_SERIALIZE(data PRETTY)
 FROM transactions
-WHERE JSON_VALUE(json_document, '$._id') LIKE 'ACCOUNT#ACC-789#TXN#%'
-ORDER BY JSON_VALUE(json_document, '$.timestamp' RETURNING TIMESTAMP) DESC;
+WHERE JSON_VALUE(data, '$._id') LIKE 'ACCOUNT#ACC-789#TXN#%'
+ORDER BY JSON_VALUE(data, '$.timestamp' RETURNING TIMESTAMP) DESC;
 ```
 
-**Expected output:**
-```json
-{
-  "_id" : "ACCOUNT#ACC-789#TXN#003",
-  "type" : "transfer",
-  "from_account" : "ACC-789",
-  "to_account" : "ACC-456",
-  "amount" : 500,
-  "memo" : "Rent payment",
-  "timestamp" : "2025-11-19T..."
-}
+Expected output shows all three transaction types with their type-specific fields.
 
-{
-  "_id" : "ACCOUNT#ACC-789#TXN#002",
-  "type" : "withdrawal",
-  "account_id" : "ACC-789",
-  "amount" : 250,
-  "method" : "atm",
-  "atm_location" : "Main St Branch",
-  "fee" : 2.5,
-  "timestamp" : "2025-11-19T..."
-}
+## Task 3: Product Catalog (Different Product Categories)
 
-{
-  "_id" : "ACCOUNT#ACC-789#TXN#001",
-  "type" : "deposit",
-  "account_id" : "ACC-789",
-  "amount" : 1000,
-  "source" : "wire_transfer",
-  "reference_number" : "WIR-2024-123456",
-  "timestamp" : "2025-11-19T..."
-}
-```
-
-### Step 2: Product Catalog (Different Product Categories)
+### Step 1: Create the Products Collection
 
 ```sql
--- Create product catalog collection
-CREATE TABLE products (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
+-- Create JSON Collection Table for products
+CREATE JSON COLLECTION TABLE products;
+
+-- Create indexes
+CREATE INDEX idx_products_id ON products (JSON_VALUE(data, '$._id'));
+CREATE INDEX idx_products_type ON products (JSON_VALUE(data, '$.type'));
+CREATE INDEX idx_products_category ON products (JSON_VALUE(data, '$.category'));
 ```
 
-**Expected output:**
-```
-Table created.
-```
-
-**SQL Approach:**
-
-if type="sql"
+### Step 2: Insert Different Product Types
 
 ```sql
-<copy>
 -- Type 1: Book
-INSERT INTO products (json_document) VALUES (
+INSERT INTO products (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'PRODUCT#BOOK-001',
     'type' VALUE 'book',
@@ -451,7 +163,7 @@ INSERT INTO products (json_document) VALUES (
 );
 
 -- Type 2: Electronics
-INSERT INTO products (json_document) VALUES (
+INSERT INTO products (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'PRODUCT#ELEC-001',
     'type' VALUE 'electronics',
@@ -470,7 +182,7 @@ INSERT INTO products (json_document) VALUES (
 );
 
 -- Type 3: Clothing
-INSERT INTO products (json_document) VALUES (
+INSERT INTO products (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'PRODUCT#CLOTH-001',
     'type' VALUE 'clothing',
@@ -485,350 +197,115 @@ INSERT INTO products (json_document) VALUES (
 );
 
 COMMIT;
-</copy>
+```
+
+### Step 3: Query Products by Type
+
+```sql
+-- Query all products and see the different schemas
+SELECT
+  JSON_VALUE(data, '$._id') AS product_id,
+  JSON_VALUE(data, '$.type') AS product_type,
+  JSON_VALUE(data, '$.price' RETURNING NUMBER) AS price
+FROM products
+ORDER BY JSON_VALUE(data, '$.type');
 ```
 
 Expected output:
 ```
-1 row created.
-1 row created.
-1 row created.
-Commit complete.
+PRODUCT_ID          PRODUCT_TYPE    PRICE
+------------------  --------------  ------
+PRODUCT#BOOK-001    book            49.99
+PRODUCT#CLOTH-001   clothing        19.99
+PRODUCT#ELEC-001    electronics     29.99
 ```
 
-/if
+## Task 4: Indexing Strategies for Polymorphic Collections
 
-**SODA Approach:**
+### Step 1: Type Discriminator Index (Essential)
 
-if type="soda"
+The type index is essential for polymorphic queries:
 
 ```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-  total_inserted NUMBER := 0;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('products');
-
-  -- Type 1: Book
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "PRODUCT#BOOK-001",
-        "type": "book",
-        "category": "books",
-        "title": "Database Design Patterns",
-        "author": "Jane Smith",
-        "isbn": "978-0-123456-78-9",
-        "pages": 420,
-        "publisher": "Tech Publishing",
-        "price": 49.99
-      }')
-    )
-  );
-  total_inserted := total_inserted + status;
-  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
-
-  -- Type 2: Electronics
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "PRODUCT#ELEC-001",
-        "type": "electronics",
-        "category": "electronics",
-        "name": "Wireless Mouse",
-        "brand": "TechCo",
-        "model": "WM-2024",
-        "warranty_months": 24,
-        "specifications": {
-          "connectivity": "Bluetooth 5.0",
-          "battery_life": "6 months",
-          "dpi": 1600
-        },
-        "price": 29.99
-      }')
-    )
-  );
-  total_inserted := total_inserted + status;
-  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
-
-  -- Type 3: Clothing
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "PRODUCT#CLOTH-001",
-        "type": "clothing",
-        "category": "clothing",
-        "name": "Cotton T-Shirt",
-        "brand": "FashionCo",
-        "sizes": ["S", "M", "L", "XL"],
-        "colors": ["black", "white", "blue"],
-        "material": "100% Cotton",
-        "price": 19.99
-      }')
-    )
-  );
-  total_inserted := total_inserted + status;
-  DBMS_OUTPUT.PUT_LINE(status || ' row created.');
-
-  DBMS_OUTPUT.PUT_LINE('Commit complete.');
-  COMMIT;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row created.
-1 row created.
-1 row created.
-Commit complete.
-
-PL/SQL procedure successfully completed.
-```
-
-/if
-
-## Task 3: Indexing Strategies for Polymorphic Collections
-
-### Step 1: Create Type Discriminator Index
-
-```sql
--- Index on type field (essential for polymorphic queries)
-CREATE INDEX idx_transactions_type ON transactions (
-  JSON_VALUE(json_document, '$.type')
-);
+-- Verify type index exists (already created above)
+SELECT index_name FROM user_indexes
+WHERE table_name = 'TRANSACTIONS' AND index_name LIKE '%TYPE%';
 
 -- This enables efficient type filtering:
--- WHERE JSON_VALUE(json_document, '$.type') = 'deposit'
+-- WHERE JSON_VALUE(data, '$.type') = 'deposit'
 ```
 
-**Expected output:**
-```
-Index created.
-```
+### Step 2: Type-Specific Field Indexes
 
-### Step 2: Create Composite Indexes with Type Filter
-
-```sql
--- Index on account_id with type filter (for account transaction queries)
-CREATE INDEX idx_transactions_account ON transactions (
-  JSON_VALUE(json_document, '$.account_id'),
-  JSON_VALUE(json_document, '$.timestamp' RETURNING TIMESTAMP)
-)
-WHERE JSON_VALUE(json_document, '$.type') IN ('deposit', 'withdrawal', 'transfer');
-
--- Index on product category with type (for category browsing)
-CREATE INDEX idx_products_category ON products (
-  JSON_VALUE(json_document, '$.category'),
-  JSON_VALUE(json_document, '$.price' RETURNING NUMBER)
-);
-```
-
-**Expected output:**
-```
-Index created.
-```
-
-> **Note:** The WHERE clause on line 284 will produce an error in Oracle. Remove it or see the updated Task 3 Step 3 below for the correct Oracle approach.
-
-### Step 3: Type-Specific Indexes
-
-> **Note:** Oracle Database doesn't support partial indexes with WHERE clauses like PostgreSQL. Instead, create regular indexes on type-specific fields and rely on the type discriminator index for filtering.
+Create indexes on fields specific to each type:
 
 ```sql
 -- Index for deposit-specific queries (source lookup)
 CREATE INDEX idx_deposits_source ON transactions (
-  JSON_VALUE(json_document, '$.source'),
-  JSON_VALUE(json_document, '$.amount' RETURNING NUMBER)
+  JSON_VALUE(data, '$.source'),
+  JSON_VALUE(data, '$.amount' RETURNING NUMBER)
 );
 
 -- Index for book-specific queries (ISBN lookup)
 CREATE INDEX idx_books_isbn ON products (
-  JSON_VALUE(json_document, '$.isbn')
+  JSON_VALUE(data, '$.isbn')
 );
 
--- Index for electronics-specific queries (brand lookup)
+-- Index for electronics-specific queries (brand + model)
 CREATE INDEX idx_electronics_brand ON products (
-  JSON_VALUE(json_document, '$.brand')
+  JSON_VALUE(data, '$.brand'),
+  JSON_VALUE(data, '$.model')
 );
 
--- These indexes work in combination with the type discriminator index
--- Query optimizer will use both indexes when you filter by type AND field:
--- WHERE JSON_VALUE(json_document, '$.type') = 'book'
---   AND JSON_VALUE(json_document, '$.isbn') = '978-0-123456-78-9'
+-- Multivalue index for clothing sizes
+CREATE MULTIVALUE INDEX idx_clothing_sizes ON products p (p.data.sizes.string());
 ```
 
-**Expected output:**
-```
-Index created.
-Index created.
-Index created.
+**Note:** These indexes work in combination with the type discriminator index. The query optimizer will use both indexes when you filter by type AND field:
+
+```sql
+-- This query uses both idx_transactions_type and idx_deposits_source
+SELECT * FROM transactions
+WHERE JSON_VALUE(data, '$.type') = 'deposit'
+  AND JSON_VALUE(data, '$.source') = 'wire_transfer';
 ```
 
-## Task 4: Querying Polymorphic Collections
+## Task 5: Querying Polymorphic Collections
 
 ### Step 1: Type-Specific Queries
 
 ```sql
--- Query only deposits
+-- Query only deposits with amount > 500
 SELECT
-  JSON_VALUE(json_document, '$._id') AS txn_id,
-  JSON_VALUE(json_document, '$.amount' RETURNING NUMBER) AS amount,
-  JSON_VALUE(json_document, '$.source') AS source,
-  JSON_VALUE(json_document, '$.timestamp' RETURNING TIMESTAMP) AS txn_time
+  JSON_VALUE(data, '$._id') AS txn_id,
+  JSON_VALUE(data, '$.amount' RETURNING NUMBER) AS amount,
+  JSON_VALUE(data, '$.source') AS source,
+  JSON_VALUE(data, '$.timestamp') AS txn_time
 FROM transactions
-WHERE JSON_VALUE(json_document, '$.type') = 'deposit'
-  AND JSON_VALUE(json_document, '$.amount' RETURNING NUMBER) > 1000
-ORDER BY JSON_VALUE(json_document, '$.timestamp' RETURNING TIMESTAMP) DESC;
-```
-
-**Expected output:**
-```
-TXN_ID                       AMOUNT SOURCE          TXN_TIME
---------------------------- ------- --------------- ----------------------------
-ACCOUNT#ACC-789#TXN#001        1000 wire_transfer   2025-11-19 15:30:45.123456
-```
-
-> **Note:** Only deposits with amount > 1000 are returned. In our test data, we have 1 matching row.
-
-**MongoDB API - Query by Type:**
-
-if type="mongodb"
-
-```javascript
-<copy>
-// Query only deposits (type discriminator)
-db.transactions.find(
-  {
-    type: "deposit",
-    amount: { $gt: 1000 }
-  },
-  {
-    _id: 1,
-    amount: 1,
-    source: 1,
-    timestamp: 1
-  }
-).sort({ timestamp: -1 })
-
-// Query all transaction types for an account
-db.transactions.find({
-  account_id: "ACC-789"
-}).sort({ timestamp: -1 })
-
-// Count transactions by type (polymorphic aggregation)
-db.transactions.aggregate([
-  {
-    $match: { account_id: "ACC-789" }
-  },
-  {
-    $group: {
-      _id: "$type",                    // Group by type discriminator
-      count: { $sum: 1 },
-      total_amount: { $sum: "$amount" }
-    }
-  },
-  {
-    $sort: { total_amount: -1 }
-  }
-])
-</copy>
+WHERE JSON_VALUE(data, '$.type') = 'deposit'
+  AND JSON_VALUE(data, '$.amount' RETURNING NUMBER) > 500
+ORDER BY JSON_VALUE(data, '$.timestamp') DESC;
 ```
 
 Expected output:
-```javascript
-// Query results:
-[
-  {
-    _id: 'ACCOUNT#ACC-789#TXN#001',
-    amount: 1000,
-    source: 'wire_transfer',
-    timestamp: ISODate("2024-11-19T15:30:45.123Z")
-  }
-]
-
-// Aggregation results:
-[
-  { _id: 'deposit', count: 45, total_amount: 125000 },
-  { _id: 'transfer', count: 23, total_amount: 45000 },
-  { _id: 'withdrawal', count: 67, total_amount: 32000 }
-]
 ```
-
-> **MongoDB API**: Type discriminator enables efficient polymorphic queries. Filter by `type` field, then access type-specific fields naturally.
-
-/if
-
-**REST API - Query by Type:**
-
-if type="rest"
-
-```bash
-<copy>
-# Query only deposits with amount > 1000
-curl -X POST \
-  "http://localhost:8080/ords/jsonuser/soda/latest/transactions?action=query" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "$query": {
-      "type": "deposit",
-      "amount": { "$gt": 1000 }
-    },
-    "$orderby": { "timestamp": -1 },
-    "$fields": {
-      "_id": 1,
-      "amount": 1,
-      "source": 1,
-      "timestamp": 1
-    }
-  }'
-
-# Query all transactions for an account (all types)
-curl -X POST \
-  "http://localhost:8080/ords/jsonuser/soda/latest/transactions?action=query" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "$query": { "account_id": "ACC-789" },
-    "$orderby": { "timestamp": -1 }
-  }'
-</copy>
+TXN_ID                       AMOUNT  SOURCE          TXN_TIME
+--------------------------  -------  --------------  -------------------------
+ACCOUNT#ACC-789#TXN#001       1000   wire_transfer   2025-11-25T...
 ```
-
-Expected output:
-```json
-{
-  "items": [
-    {
-      "_id": "ACCOUNT#ACC-789#TXN#001",
-      "amount": 1000,
-      "source": "wire_transfer",
-      "timestamp": "2024-11-19T15:30:45.123Z"
-    }
-  ],
-  "hasMore": false,
-  "count": 1
-}
-```
-
-> **REST API**: Use QBE filtering with type discriminator. Applications can route different types to different UI components or validation logic.
-
-/if
 
 ```sql
 -- Query only books by author
 SELECT
-  JSON_VALUE(json_document, '$.title') AS title,
-  JSON_VALUE(json_document, '$.author') AS author,
-  JSON_VALUE(json_document, '$.price' RETURNING NUMBER) AS price
+  JSON_VALUE(data, '$.title') AS title,
+  JSON_VALUE(data, '$.author') AS author,
+  JSON_VALUE(data, '$.price' RETURNING NUMBER) AS price
 FROM products
-WHERE JSON_VALUE(json_document, '$.type') = 'book'
-  AND JSON_VALUE(json_document, '$.author') LIKE '%Smith%';
+WHERE JSON_VALUE(data, '$.type') = 'book'
+  AND JSON_VALUE(data, '$.author') LIKE '%Smith%';
 ```
 
-**Expected output:**
+Expected output:
 ```
 TITLE                          AUTHOR       PRICE
 ------------------------------ ------------ ------
@@ -840,34 +317,35 @@ Database Design Patterns       Jane Smith    49.99
 ```sql
 -- Count transactions by type
 SELECT
-  JSON_VALUE(json_document, '$.type') AS transaction_type,
+  JSON_VALUE(data, '$.type') AS transaction_type,
   COUNT(*) AS count,
-  SUM(JSON_VALUE(json_document, '$.amount' RETURNING NUMBER)) AS total_amount
+  SUM(JSON_VALUE(data, '$.amount' RETURNING NUMBER)) AS total_amount
 FROM transactions
-WHERE JSON_VALUE(json_document, '$.account_id') = 'ACC-789'
-GROUP BY JSON_VALUE(json_document, '$.type')
+GROUP BY JSON_VALUE(data, '$.type')
 ORDER BY total_amount DESC;
+```
 
-/*
-Expected Result:
+Expected output:
+```
 TRANSACTION_TYPE   COUNT  TOTAL_AMOUNT
 -----------------  -----  ------------
-deposit            45     125000.00
-transfer           23     45000.00
-withdrawal         67     32000.00
-*/
+deposit                1       1000.00
+transfer               1        500.00
+withdrawal             1        250.00
+```
 
--- Product count and revenue by category
+```sql
+-- Product count and average price by category
 SELECT
-  JSON_VALUE(json_document, '$.category') AS category,
-  JSON_VALUE(json_document, '$.type') AS product_type,
+  JSON_VALUE(data, '$.category') AS category,
+  JSON_VALUE(data, '$.type') AS product_type,
   COUNT(*) AS product_count,
-  ROUND(AVG(JSON_VALUE(json_document, '$.price' RETURNING NUMBER)), 2) AS avg_price
+  ROUND(AVG(JSON_VALUE(data, '$.price' RETURNING NUMBER)), 2) AS avg_price
 FROM products
 GROUP BY
-  JSON_VALUE(json_document, '$.category'),
-  JSON_VALUE(json_document, '$.type')
-ORDER BY product_count DESC;
+  JSON_VALUE(data, '$.category'),
+  JSON_VALUE(data, '$.type')
+ORDER BY avg_price DESC;
 ```
 
 ### Step 3: Using JSON_TABLE for Type-Specific Fields
@@ -878,7 +356,7 @@ SELECT
   jt.*
 FROM products,
      JSON_TABLE(
-       json_document,
+       data,
        '$'
        COLUMNS (
          product_id VARCHAR2(50) PATH '$._id',
@@ -897,110 +375,119 @@ FROM products,
      ) jt
 WHERE jt.product_type IN ('book', 'electronics')
 ORDER BY jt.product_id;
-
-/*
-Result shows all columns with NULLs for type-specific fields that don't apply:
-PRODUCT_ID         PRODUCT_TYPE  PRICE   TITLE                      AUTHOR      ISBN               BRAND   MODEL     WARRANTY_MONTHS
------------------  ------------  ------  -------------------------  ----------  -----------------  ------  --------  ---------------
-PRODUCT#BOOK-001   book          49.99   Database Design Patterns   Jane Smith  978-0-123456-78-9  (null)  (null)    (null)
-PRODUCT#ELEC-001   electronics   29.99   (null)                     (null)      (null)             TechCo  WM-2024   24
-*/
 ```
 
-## Task 5: Schema Validation for Polymorphic Documents
+Result shows all columns with NULLs for type-specific fields that don't apply:
+```
+PRODUCT_ID         TYPE          PRICE   TITLE                      AUTHOR      ISBN               BRAND   MODEL
+-----------------  ------------  ------  -------------------------  ----------  -----------------  ------  --------
+PRODUCT#BOOK-001   book          49.99   Database Design Patterns   Jane Smith  978-0-123456-78-9  (null)  (null)
+PRODUCT#ELEC-001   electronics   29.99   (null)                     (null)      (null)             TechCo  WM-2024
+```
+
+### Step 4: Query Clothing by Size (Multivalue Index)
+
+```sql
+-- Find clothing available in size 'L' using multivalue index
+SELECT
+  JSON_VALUE(data, '$._id') AS product_id,
+  JSON_VALUE(data, '$.name') AS name,
+  JSON_VALUE(data, '$.price' RETURNING NUMBER) AS price
+FROM products
+WHERE JSON_VALUE(data, '$.type') = 'clothing'
+  AND JSON_EXISTS(data, '$.sizes[*]?(@ == "L")');
+```
+
+## Task 6: Schema Validation for Polymorphic Documents
 
 ### Step 1: Implement Type-Specific Validation
 
+Use SQL queries to validate documents based on their type:
+
 ```sql
--- Create validation function for polymorphic documents
-CREATE OR REPLACE FUNCTION validate_transaction(
-  p_doc JSON_OBJECT_T
-) RETURN BOOLEAN IS
-  v_type VARCHAR2(50);
-  v_valid BOOLEAN := TRUE;
-BEGIN
-  v_type := p_doc.get_String('type');
+-- Validate transaction documents by checking required fields based on type
+-- This query finds invalid transactions missing required type-specific fields
 
-  -- Validate common fields
-  IF p_doc.get_String('account_id') IS NULL THEN
-    RETURN FALSE;
-  END IF;
+SELECT
+  JSON_VALUE(data, '$._id') AS txn_id,
+  JSON_VALUE(data, '$.type') AS txn_type,
+  CASE
+    WHEN JSON_VALUE(data, '$.type') = 'deposit'
+         AND JSON_VALUE(data, '$.source') IS NULL
+    THEN 'ERROR: source is required for deposits'
 
-  IF p_doc.get_Number('amount') IS NULL OR p_doc.get_Number('amount') <= 0 THEN
-    RETURN FALSE;
-  END IF;
+    WHEN JSON_VALUE(data, '$.type') = 'withdrawal'
+         AND JSON_VALUE(data, '$.method') IS NULL
+    THEN 'ERROR: method is required for withdrawals'
 
-  -- Type-specific validation
-  CASE v_type
-    WHEN 'deposit' THEN
-      -- Deposits must have source
-      IF p_doc.get_String('source') IS NULL THEN
-        v_valid := FALSE;
-      END IF;
+    WHEN JSON_VALUE(data, '$.type') = 'transfer'
+         AND (JSON_VALUE(data, '$.from_account') IS NULL
+              OR JSON_VALUE(data, '$.to_account') IS NULL)
+    THEN 'ERROR: from_account and to_account required for transfers'
 
-    WHEN 'withdrawal' THEN
-      -- Withdrawals must have method
-      IF p_doc.get_String('method') IS NULL THEN
-        v_valid := FALSE;
-      END IF;
+    WHEN JSON_VALUE(data, '$.amount' RETURNING NUMBER) IS NULL
+         OR JSON_VALUE(data, '$.amount' RETURNING NUMBER) <= 0
+    THEN 'ERROR: amount must be positive'
 
-    WHEN 'transfer' THEN
-      -- Transfers must have from_account and to_account
-      IF p_doc.get_String('from_account') IS NULL OR
-         p_doc.get_String('to_account') IS NULL THEN
-        v_valid := FALSE;
-      END IF;
-
-    ELSE
-      -- Unknown type
-      v_valid := FALSE;
-  END CASE;
-
-  RETURN v_valid;
-END;
-/
-
--- Test validation
-DECLARE
-  v_doc JSON_OBJECT_T;
-  v_valid BOOLEAN;
-BEGIN
-  -- Valid deposit
-  v_doc := JSON_OBJECT_T('{
-    "type": "deposit",
-    "account_id": "ACC-789",
-    "amount": 1000,
-    "source": "wire_transfer"
-  }');
-  v_valid := validate_transaction(v_doc);
-  DBMS_OUTPUT.PUT_LINE('Valid deposit: ' || CASE WHEN v_valid THEN 'YES' ELSE 'NO' END);
-
-  -- Invalid deposit (missing source)
-  v_doc := JSON_OBJECT_T('{
-    "type": "deposit",
-    "account_id": "ACC-789",
-    "amount": 1000
-  }');
-  v_valid := validate_transaction(v_doc);
-  DBMS_OUTPUT.PUT_LINE('Invalid deposit: ' || CASE WHEN v_valid THEN 'YES' ELSE 'NO' END);
-END;
-/
-
-/*
-Expected Output:
-Valid deposit: YES
-Invalid deposit: NO
-*/
+    ELSE 'VALID'
+  END AS validation_result
+FROM transactions;
 ```
 
-## Task 6: Best Practices for Polymorphic Pattern
+Expected output (all our test data is valid):
+```
+TXN_ID                       TXN_TYPE     VALIDATION_RESULT
+--------------------------   ----------   ------------------
+ACCOUNT#ACC-789#TXN#001      deposit      VALID
+ACCOUNT#ACC-789#TXN#002      withdrawal   VALID
+ACCOUNT#ACC-789#TXN#003      transfer     VALID
+```
 
-### Step 1: Design Guidelines
+### Step 2: Find Invalid Documents
+
+```sql
+-- Insert an invalid transaction (missing required source for deposit)
+INSERT INTO transactions (data) VALUES (
+  JSON_OBJECT(
+    '_id' VALUE 'ACCOUNT#ACC-789#TXN#004',
+    'type' VALUE 'deposit',
+    'account_id' VALUE 'ACC-789',
+    'amount' VALUE 500
+    -- Missing 'source' field!
+  )
+);
+
+-- Query to find invalid transactions
+SELECT
+  JSON_VALUE(data, '$._id') AS txn_id,
+  JSON_VALUE(data, '$.type') AS txn_type,
+  'Missing source' AS validation_error
+FROM transactions
+WHERE JSON_VALUE(data, '$.type') = 'deposit'
+  AND JSON_VALUE(data, '$.source') IS NULL;
+```
+
+Expected output:
+```
+TXN_ID                       TXN_TYPE    VALIDATION_ERROR
+--------------------------   ----------  ----------------
+ACCOUNT#ACC-789#TXN#004      deposit     Missing source
+```
+
+```sql
+-- Clean up invalid test document
+DELETE FROM transactions WHERE JSON_VALUE(data, '$._id') = 'ACCOUNT#ACC-789#TXN#004';
+COMMIT;
+```
+
+## Task 7: Best Practices for Polymorphic Pattern
+
+### Design Guidelines
 
 **DO:**
 - ✅ Use consistent `type` field as discriminator across all documents
 - ✅ Include common fields shared by all types (e.g., `_id`, `created_at`)
-- ✅ Create indexes with type filters for efficient queries
+- ✅ Create indexes on `type` field for efficient filtering
 - ✅ Document the schema for each type clearly
 - ✅ Validate type-specific required fields
 
@@ -1010,7 +497,7 @@ Invalid deposit: NO
 - ❌ Forget to index the `type` field
 - ❌ Use ambiguous type names (e.g., "data", "item")
 
-### Step 2: When to Use Polymorphic Pattern
+### When to Use Polymorphic Pattern
 
 **Use Polymorphic Pattern when:**
 - ✅ Entities are related and accessed together (e.g., customer, orders, payments)
@@ -1024,31 +511,41 @@ Invalid deposit: NO
 - ❌ Entities have different retention/archival policies
 - ❌ Schemas are highly divergent with few shared fields
 
+## Task 8: Cleanup
+
+```sql
+-- Clean up (optional - keep for subsequent labs)
+-- DROP TABLE transactions PURGE;
+-- DROP TABLE products PURGE;
+```
+
 ## Conclusion
 
 In this lab, you learned how to effectively implement the Polymorphic Pattern within a Single Collection design.
 
 **Key Takeaways:**
 - ✅ Use `type` field as discriminator for different entity types
-- ✅ Index `type` field and create type-specific partial indexes
+- ✅ Index `type` field and create type-specific indexes
 - ✅ Query efficiently using type filters and composite indexes
 - ✅ Validate type-specific required fields programmatically
 - ✅ Apply polymorphic pattern when entities are related and accessed together
+- ✅ Use multivalue indexes for array fields like sizes/colors
 
 **Indexing Strategy:**
 - Always index the `type` discriminator field
-- Create partial indexes for type-specific queries
+- Create indexes on type-specific fields used in queries
 - Use composite indexes combining `type` with frequently queried fields
+- Use multivalue indexes for array field queries
 
 **Next Steps:**
 - Proceed to **Lab 7: Avoiding LOB Performance Cliffs** for deep dive into OSON storage optimization
 
 ## Learn More
 
-* [Oracle JSON Developer's Guide - JSON Collections](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/)
+* [Oracle JSON Developer's Guide - JSON Collections](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/)
 * [MongoDB Polymorphic Pattern Documentation](https://www.mongodb.com/docs/manual/data-modeling/design-patterns/polymorphic-pattern/)
 
 ## Acknowledgments
 
 * **Author** - Rick Houlihan
-* **Last Updated By/Date** - November 2024
+* **Last Updated By/Date** - November 2025

@@ -38,8 +38,8 @@ SELECT
   COUNT(CASE WHEN type = 'comment' THEN 1 END) as comment_count,
   COUNT(CASE WHEN type = 'share' THEN 1 END) as share_count
 FROM social_data
-WHERE JSON_VALUE(json_document, '$.post_id') = 'POST-12345'
-  AND JSON_VALUE(json_document, '$.type') IN ('like', 'comment', 'share')
+WHERE JSON_VALUE(data, '$.post_id') = 'POST-12345'
+  AND JSON_VALUE(data, '$.type') IN ('like', 'comment', 'share')
 GROUP BY post_id;
 
 -- Problem: Scans thousands of engagement documents for popular posts
@@ -97,27 +97,29 @@ Store computed metrics directly in the document:
 
 ## Task 2: Implementing Computed Metrics in Single Collection
 
-### Step 1: Design the Data Model
+### Step 1: Create the Social Media Collection
 
 Let's build a social media application with posts, likes, comments, and shares in a Single Collection:
 
 ```sql
 -- Create the social media collection
-CREATE TABLE social_data (
-  id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-  json_document JSON,
-  created_on TIMESTAMP DEFAULT SYSTIMESTAMP
-);
+CREATE JSON COLLECTION TABLE social_data;
 
--- Insert a post with initial computed metrics
+-- Create index on _id
+CREATE INDEX idx_social_id ON social_data (JSON_VALUE(data, '$._id'));
 
-**SQL Approach:**
+-- Create index on type
+CREATE INDEX idx_social_type ON social_data (JSON_VALUE(data, '$.type'));
 
-if type="sql"
+-- Create index on post_id for finding engagements
+CREATE INDEX idx_social_postid ON social_data (JSON_VALUE(data, '$.post_id'));
+```
+
+### Step 2: Insert a Post with Pre-Computed Metrics
 
 ```sql
-<copy>
-INSERT INTO social_data (json_document) VALUES (
+-- Insert a post with initial computed metrics
+INSERT INTO social_data (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'POST#12345',
     'type' VALUE 'post',
@@ -134,75 +136,24 @@ INSERT INTO social_data (json_document) VALUES (
     )
   )
 );
-</copy>
-```
 
-Expected output:
-```
-1 row created.
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
-
-```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('social_data');
-
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "POST#12345",
-        "type": "post",
-        "user_id": "USER-789",
-        "user_name": "Alice Smith",
-        "content": "Check out this amazing photo!",
-        "created_at": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '",
-        "engagement": {
-          "like_count": 0,
-          "comment_count": 0,
-          "share_count": 0,
-          "view_count": 0,
-          "last_updated": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
-        }
-      }')
-    )
-  );
-
-  IF status = 1 THEN
-    DBMS_OUTPUT.PUT_LINE('1 row created.');
-  END IF;
-END;
-/
-</copy>
+COMMIT;
 ```
 
 Expected output:
 ```
 1 row created.
 
-PL/SQL procedure successfully completed.
+Commit complete.
 ```
-
-/if
 
 **MongoDB API Approach:**
 
-if type="mongodb"
-
 ```javascript
-<copy>
 // Connect to Oracle using MongoDB API
-// mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/mydb?authMechanism=PLAIN&authSource=$external&tls=false"
+// mongosh "mongodb://jsonuser:WelcomeJson%23123@localhost:27017/jsonuser?authMechanism=PLAIN&authSource=$external&tls=false"
 
-use mydb
+use jsonuser
 
 // Insert post with pre-computed engagement metrics
 db.social_data.insertOne({
@@ -220,86 +171,18 @@ db.social_data.insertOne({
     last_updated: new Date()
   }
 })
-</copy>
-```
-
-Expected output:
-```javascript
-{
-  acknowledged: true,
-  insertedId: 'POST#12345'
-}
 ```
 
 > **MongoDB API**: Pre-computed metrics are a standard MongoDB pattern. Initialize counters at 0, then increment atomically using `$inc` operator.
 
-/if
-
-**Python Approach:**
-
-if type="python"
-
-```python
-<copy>
-import oracledb
-from datetime import datetime
-
-connection = oracledb.connect(
-    user="jsonuser",
-    password="WelcomeJson#123",
-    dsn="localhost/FREEPDB1"
-)
-
-soda = connection.getSodaDatabase()
-collection = soda.openCollection("social_data")
-
-# Insert post with pre-computed engagement metrics
-# Metrics are calculated in the application layer
-current_time = datetime.utcnow().isoformat() + 'Z'
-
-post = {
-    "_id": "POST#12345",
-    "type": "post",
-    "user_id": "USER-789",
-    "user_name": "Alice Smith",
-    "content": "Check out this amazing photo!",
-    "created_at": current_time,
-    "engagement": {
-        "like_count": 0,
-        "comment_count": 0,
-        "share_count": 0,
-        "view_count": 0,
-        "last_updated": current_time
-    }
-}
-
-doc = collection.insertOne(post)
-print("1 row created.")
-connection.commit()
-
-connection.close()
-</copy>
-```
-
-Expected output:
-```
-1 row created.
-```
-
-> **Python**: Application calculates and maintains metrics. Perfect for data pipelines and analytics workflows where computation happens in Python.
-
-/if
-
--- Insert engagement events (individual documents)
--- Note: We store these as separate documents but maintain computed totals in the post
-
-**SQL Approach:**
-
-if type="sql"
+### Step 3: Insert Engagement Events
 
 ```sql
-<copy>
-INSERT INTO social_data (json_document) VALUES (
+-- Insert engagement events (individual documents)
+-- We store these as separate documents but maintain computed totals in the post
+
+-- Insert a like
+INSERT INTO social_data (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'POST#12345#LIKE#USER-456',
     'type' VALUE 'like',
@@ -309,88 +192,40 @@ INSERT INTO social_data (json_document) VALUES (
     'created_at' VALUE SYSTIMESTAMP
   )
 );
-</copy>
+
+-- Insert a comment
+INSERT INTO social_data (data) VALUES (
+  JSON_OBJECT(
+    '_id' VALUE 'POST#12345#COMMENT#USER-789',
+    'type' VALUE 'comment',
+    'post_id' VALUE 'POST#12345',
+    'user_id' VALUE 'USER-789',
+    'content' VALUE 'Great photo!',
+    'created_at' VALUE SYSTIMESTAMP
+  )
+);
+
+COMMIT;
 ```
 
-Expected output:
-```
-1 row created.
-```
-
-/if
-
-**SODA Approach:**
-
-if type="soda"
+### Step 4: Query the Post (Fast - Single Document Read)
 
 ```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('social_data');
-
-  status := collection.insert_one(
-    SODA_DOCUMENT_T(
-      b_content => UTL_RAW.cast_to_raw('{
-        "_id": "POST#12345#LIKE#USER-456",
-        "type": "like",
-        "post_id": "POST#12345",
-        "user_id": "USER-456",
-        "user_name": "Bob Johnson",
-        "created_at": "' || TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') || '"
-      }')
-    )
-  );
-
-  IF status = 1 THEN
-    DBMS_OUTPUT.PUT_LINE('1 row created.');
-  END IF;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row created.
-
-PL/SQL procedure successfully completed.
-```
-
-/if
-
--- Query the post (fast - single document read)
-SELECT JSON_QUERY(json_document, '$' PRETTY)
+-- Query the post (2-3ms response time)
+SELECT JSON_SERIALIZE(data PRETTY)
 FROM social_data
-WHERE JSON_VALUE(json_document, '$._id') = 'POST#12345';
-
-/*
-Result (2-3ms):
-{
-  "_id": "POST#12345",
-  "type": "post",
-  "content": "Check out this amazing photo!",
-  "engagement": {
-    "like_count": 1247,
-    "comment_count": 89,
-    "share_count": 34
-  }
-}
-*/
+WHERE JSON_VALUE(data, '$._id') = 'POST#12345';
 ```
 
-### Step 2: Update Strategies for Computed Metrics
+## Task 3: Update Strategies for Computed Metrics
 
-**Strategy 1: Increment on Write (Immediate Consistency)**
+### Step 1: Increment on Write (Immediate Consistency)
 
 ```sql
--- Update the computed metric when a like is added
--- This ensures metrics are always current
+-- When a like is added, increment the like_count
 
 -- 1. Insert the like event
-INSERT INTO social_data (json_document) VALUES (
+INSERT INTO social_data (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'POST#12345#LIKE#USER-999',
     'type' VALUE 'like',
@@ -400,160 +235,39 @@ INSERT INTO social_data (json_document) VALUES (
   )
 );
 
--- 2. Increment the like_count in the post document
-
-**SQL Approach:**
-
-if type="sql"
-
-```sql
-<copy>
+-- 2. Increment the like_count using JSON_TRANSFORM
 UPDATE social_data
-SET json_document = JSON_MERGEPATCH(
-  json_document,
-  JSON_OBJECT(
-    'engagement' VALUE JSON_OBJECT(
-      'like_count' VALUE (
-        SELECT JSON_VALUE(json_document, '$.engagement.like_count') + 1
-        FROM social_data
-        WHERE JSON_VALUE(json_document, '$._id') = 'POST#12345'
-      ),
-      'last_updated' VALUE SYSTIMESTAMP
-    )
-  )
+SET data = JSON_TRANSFORM(
+  data,
+  SET '$.engagement.like_count' = (
+    JSON_VALUE(data, '$.engagement.like_count' RETURNING NUMBER) + 1
+  ),
+  SET '$.engagement.last_updated' = SYSTIMESTAMP
 )
-WHERE JSON_VALUE(json_document, '$._id') = 'POST#12345';
+WHERE JSON_VALUE(data, '$._id') = 'POST#12345';
 
 COMMIT;
-</copy>
 ```
 
 Expected output:
 ```
+1 row created.
+
 1 row updated.
 
 Commit complete.
 ```
 
-/if
-
-**SODA Approach:**
-
-if type="soda"
+### Step 2: Verify the Update
 
 ```sql
-<copy>
-DECLARE
-  collection SODA_COLLECTION_T;
-  doc SODA_DOCUMENT_T;
-  doc_content CLOB;
-  current_count NUMBER;
-  merged_content CLOB;
-  status NUMBER;
-BEGIN
-  collection := DBMS_SODA.OPEN_COLLECTION('social_data');
-
-  -- Get the existing post document
-  doc := collection.find().key('POST#12345').get_one();
-
-  IF doc IS NOT NULL THEN
-    doc_content := doc.get_clob();
-
-    -- Extract current like_count
-    SELECT JSON_VALUE(doc_content, '$.engagement.like_count' RETURNING NUMBER)
-    INTO current_count
-    FROM DUAL;
-
-    -- Merge the incremented count
-    SELECT JSON_MERGEPATCH(doc_content, JSON_OBJECT(
-      'engagement' VALUE JSON_OBJECT(
-        'like_count' VALUE current_count + 1,
-        'last_updated' VALUE TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-      )
-    ))
-    INTO merged_content
-    FROM DUAL;
-
-    -- Replace with merged document
-    status := collection.find().key('POST#12345').replace_one(
-      SODA_DOCUMENT_T(b_content => UTL_RAW.cast_to_raw(merged_content))
-    );
-
-    IF status = 1 THEN
-      DBMS_OUTPUT.PUT_LINE('1 row updated.');
-      DBMS_OUTPUT.PUT_LINE('');
-      DBMS_OUTPUT.PUT_LINE('Commit complete.');
-    END IF;
-
-    COMMIT;
-  END IF;
-END;
-/
-</copy>
-```
-
-Expected output:
-```
-1 row updated.
-
-Commit complete.
-
-PL/SQL procedure successfully completed.
-```
-
-/if
-```
-
-**Strategy 2: Batch Update (Eventual Consistency)**
-
-```sql
--- Update computed metrics in batches (every 5 minutes)
--- Better for high-velocity data
-
-BEGIN
-  -- Update engagement counts for all posts based on actual event counts
-  FOR post_rec IN (
-    SELECT DISTINCT JSON_VALUE(json_document, '$.post_id') AS post_id
-    FROM social_data
-    WHERE JSON_VALUE(json_document, '$.type') IN ('like', 'comment', 'share')
-      AND JSON_VALUE(json_document, '$.created_at' RETURNING TIMESTAMP)
-          > SYSTIMESTAMP - INTERVAL '5' MINUTE
-  ) LOOP
-    -- Count likes
-    DECLARE
-      v_like_count NUMBER;
-      v_comment_count NUMBER;
-      v_share_count NUMBER;
-    BEGIN
-      SELECT
-        COUNT(CASE WHEN JSON_VALUE(json_document, '$.type') = 'like' THEN 1 END),
-        COUNT(CASE WHEN JSON_VALUE(json_document, '$.type') = 'comment' THEN 1 END),
-        COUNT(CASE WHEN JSON_VALUE(json_document, '$.type') = 'share' THEN 1 END)
-      INTO v_like_count, v_comment_count, v_share_count
-      FROM social_data
-      WHERE JSON_VALUE(json_document, '$.post_id') = post_rec.post_id
-        AND JSON_VALUE(json_document, '$.type') IN ('like', 'comment', 'share');
-
-      -- Update post document
-      UPDATE social_data
-      SET json_document = JSON_MERGEPATCH(
-        json_document,
-        JSON_OBJECT(
-          'engagement' VALUE JSON_OBJECT(
-            'like_count' VALUE v_like_count,
-            'comment_count' VALUE v_comment_count,
-            'share_count' VALUE v_share_count,
-            'last_updated' VALUE SYSTIMESTAMP
-          )
-        )
-      )
-      WHERE JSON_VALUE(json_document, '$._id') = 'POST#' || post_rec.post_id;
-    END;
-  END LOOP;
-
-  COMMIT;
-END;
-/
+-- Check the updated like_count
+SELECT
+  JSON_VALUE(data, '$._id') AS post_id,
+  JSON_VALUE(data, '$.engagement.like_count') AS like_count,
+  JSON_VALUE(data, '$.engagement.last_updated') AS last_updated
+FROM social_data
+WHERE JSON_VALUE(data, '$._id') = 'POST#12345';
 ```
 
 ### Step 3: Using Composite Keys for Time-Series Computed Data
@@ -562,7 +276,7 @@ Store monthly customer statistics using composite keys:
 
 ```sql
 -- Insert customer document
-INSERT INTO social_data (json_document) VALUES (
+INSERT INTO social_data (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'CUSTOMER#456',
     'type' VALUE 'customer',
@@ -574,7 +288,7 @@ INSERT INTO social_data (json_document) VALUES (
 );
 
 -- Insert monthly computed statistics (separate document)
-INSERT INTO social_data (json_document) VALUES (
+INSERT INTO social_data (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'CUSTOMER#456#STATS#2024-11',
     'type' VALUE 'customer_monthly_stats',
@@ -591,44 +305,29 @@ INSERT INTO social_data (json_document) VALUES (
   )
 );
 
--- Query customer with recent monthly stats
-SELECT JSON_QUERY(json_document, '$' PRETTY)
-FROM social_data
-WHERE JSON_VALUE(json_document, '$._id') IN (
-  'CUSTOMER#456',
-  'CUSTOMER#456#STATS#2024-11',
-  'CUSTOMER#456#STATS#2024-10'
-);
-
--- Query all stats for a customer (composite key prefix)
-SELECT JSON_QUERY(json_document, '$' PRETTY)
-FROM social_data
-WHERE JSON_VALUE(json_document, '$._id') LIKE 'CUSTOMER#456#STATS#%'
-ORDER BY JSON_VALUE(json_document, '$.month') DESC;
+COMMIT;
 ```
 
-## Task 3: Advanced Computed Pattern - Cascading Aggregations
+```sql
+-- Query all stats for a customer (composite key prefix)
+SELECT JSON_SERIALIZE(data PRETTY)
+FROM social_data
+WHERE JSON_VALUE(data, '$._id') LIKE 'CUSTOMER#456#STATS#%'
+ORDER BY JSON_VALUE(data, '$.month') DESC;
+```
 
-### Step 1: Multi-Level Aggregation Hierarchy
+## Task 4: Multi-Level Aggregation Hierarchy
 
 For complex analytics, you may need multiple levels of computed aggregations:
 
+### Step 1: Create User Statistics at Multiple Levels
+
 ```sql
 -- Level 1: Individual post metrics (updated on each engagement)
-INSERT INTO social_data (json_document) VALUES (
-  JSON_OBJECT(
-    '_id' VALUE 'POST#12345',
-    'type' VALUE 'post',
-    'user_id' VALUE 'USER-789',
-    'engagement' VALUE JSON_OBJECT(
-      'like_count' VALUE 1247,
-      'comment_count' VALUE 89
-    )
-  )
-);
+-- Already created above with POST#12345
 
 -- Level 2: Daily user statistics (computed from posts)
-INSERT INTO social_data (json_document) VALUES (
+INSERT INTO social_data (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'USER#789#STATS#2024-11-18',
     'type' VALUE 'user_daily_stats',
@@ -645,7 +344,7 @@ INSERT INTO social_data (json_document) VALUES (
 );
 
 -- Level 3: Monthly user statistics (computed from daily stats)
-INSERT INTO social_data (json_document) VALUES (
+INSERT INTO social_data (data) VALUES (
   JSON_OBJECT(
     '_id' VALUE 'USER#789#STATS#2024-11',
     'type' VALUE 'user_monthly_stats',
@@ -662,93 +361,19 @@ INSERT INTO social_data (json_document) VALUES (
   )
 );
 
--- Query user with monthly stats (single query)
-SELECT JSON_QUERY(json_document, '$' PRETTY)
-FROM social_data
-WHERE JSON_VALUE(json_document, '$._id') IN ('USER#789', 'USER#789#STATS#2024-11');
+COMMIT;
 ```
 
-### Step 2: Batch Computation Job for Cascading Aggregations
+### Step 2: Query User with Monthly Stats
 
 ```sql
--- Daily batch job to compute user statistics from posts
-DECLARE
-  v_user_id VARCHAR2(100);
-  v_date VARCHAR2(10) := TO_CHAR(SYSDATE, 'YYYY-MM-DD');
-BEGIN
-  -- Loop through active users
-  FOR user_rec IN (
-    SELECT DISTINCT JSON_VALUE(json_document, '$.user_id') AS user_id
-    FROM social_data
-    WHERE JSON_VALUE(json_document, '$.type') = 'post'
-      AND JSON_VALUE(json_document, '$.created_at' RETURNING TIMESTAMP)
-          >= TRUNC(SYSDATE)
-  ) LOOP
-    DECLARE
-      v_posts_created NUMBER;
-      v_total_likes NUMBER := 0;
-      v_total_comments NUMBER := 0;
-    BEGIN
-      -- Count posts created today
-      SELECT COUNT(*)
-      INTO v_posts_created
-      FROM social_data
-      WHERE JSON_VALUE(json_document, '$.type') = 'post'
-        AND JSON_VALUE(json_document, '$.user_id') = user_rec.user_id
-        AND JSON_VALUE(json_document, '$.created_at' RETURNING TIMESTAMP) >= TRUNC(SYSDATE);
-
-      -- Sum engagement metrics from posts
-      SELECT
-        SUM(JSON_VALUE(json_document, '$.engagement.like_count' RETURNING NUMBER)) AS total_likes,
-        SUM(JSON_VALUE(json_document, '$.engagement.comment_count' RETURNING NUMBER)) AS total_comments
-      INTO v_total_likes, v_total_comments
-      FROM social_data
-      WHERE JSON_VALUE(json_document, '$.type') = 'post'
-        AND JSON_VALUE(json_document, '$.user_id') = user_rec.user_id
-        AND JSON_VALUE(json_document, '$.created_at' RETURNING TIMESTAMP) >= TRUNC(SYSDATE);
-
-      -- Insert or update daily stats document
-      MERGE INTO social_data dst
-      USING (
-        SELECT 'USER#' || user_rec.user_id || '#STATS#' || v_date AS doc_id FROM DUAL
-      ) src
-      ON (JSON_VALUE(dst.json_document, '$._id') = src.doc_id)
-      WHEN MATCHED THEN
-        UPDATE SET dst.json_document = JSON_MERGEPATCH(
-          dst.json_document,
-          JSON_OBJECT(
-            'stats' VALUE JSON_OBJECT(
-              'posts_created' VALUE v_posts_created,
-              'total_likes_received' VALUE v_total_likes,
-              'total_comments_received' VALUE v_total_comments
-            ),
-            'computed_at' VALUE SYSTIMESTAMP
-          )
-        )
-      WHEN NOT MATCHED THEN
-        INSERT (json_document) VALUES (
-          JSON_OBJECT(
-            '_id' VALUE 'USER#' || user_rec.user_id || '#STATS#' || v_date,
-            'type' VALUE 'user_daily_stats',
-            'user_id' VALUE user_rec.user_id,
-            'date' VALUE v_date,
-            'stats' VALUE JSON_OBJECT(
-              'posts_created' VALUE v_posts_created,
-              'total_likes_received' VALUE v_total_likes,
-              'total_comments_received' VALUE v_total_comments
-            ),
-            'computed_at' VALUE SYSTIMESTAMP
-          )
-        );
-    END;
-  END LOOP;
-
-  COMMIT;
-END;
-/
+-- Query user with monthly stats (single query)
+SELECT JSON_SERIALIZE(data PRETTY)
+FROM social_data
+WHERE JSON_VALUE(data, '$._id') IN ('USER#789', 'USER#789#STATS#2024-11');
 ```
 
-## Task 4: Performance Comparison - Computed vs Real-Time
+## Task 5: Performance Comparison - Computed vs Real-Time
 
 ### Step 1: Load Test Data
 
@@ -757,7 +382,7 @@ END;
 BEGIN
   -- Insert 100 posts
   FOR i IN 1..100 LOOP
-    INSERT INTO social_data (json_document) VALUES (
+    INSERT INTO social_data (data) VALUES (
       JSON_OBJECT(
         '_id' VALUE 'POST#' || LPAD(i, 5, '0'),
         'type' VALUE 'post',
@@ -775,7 +400,7 @@ BEGIN
 
     -- Insert likes for each post (varying count)
     FOR j IN 1..MOD(i, 50) + 10 LOOP
-      INSERT INTO social_data (json_document) VALUES (
+      INSERT INTO social_data (data) VALUES (
         JSON_OBJECT(
           '_id' VALUE 'POST#' || LPAD(i, 5, '0') || '#LIKE#USER-' || j,
           'type' VALUE 'like',
@@ -790,13 +415,17 @@ BEGIN
   COMMIT;
 END;
 /
+```
 
+### Step 2: Update Computed Metrics for All Posts
+
+```sql
 -- Update computed metrics for all posts
 BEGIN
   FOR post_rec IN (
-    SELECT DISTINCT JSON_VALUE(json_document, '$._id') AS post_id
+    SELECT DISTINCT JSON_VALUE(data, '$._id') AS post_id
     FROM social_data
-    WHERE JSON_VALUE(json_document, '$.type') = 'post'
+    WHERE JSON_VALUE(data, '$.type') = 'post'
   ) LOOP
     DECLARE
       v_like_count NUMBER;
@@ -804,20 +433,16 @@ BEGIN
       SELECT COUNT(*)
       INTO v_like_count
       FROM social_data
-      WHERE JSON_VALUE(json_document, '$.post_id') = post_rec.post_id
-        AND JSON_VALUE(json_document, '$.type') = 'like';
+      WHERE JSON_VALUE(data, '$.post_id') = post_rec.post_id
+        AND JSON_VALUE(data, '$.type') = 'like';
 
       UPDATE social_data
-      SET json_document = JSON_MERGEPATCH(
-        json_document,
-        JSON_OBJECT(
-          'engagement' VALUE JSON_OBJECT(
-            'like_count' VALUE v_like_count,
-            'last_updated' VALUE SYSTIMESTAMP
-          )
-        )
+      SET data = JSON_TRANSFORM(
+        data,
+        SET '$.engagement.like_count' = v_like_count,
+        SET '$.engagement.last_updated' = SYSTIMESTAMP
       )
-      WHERE JSON_VALUE(json_document, '$._id') = post_rec.post_id;
+      WHERE JSON_VALUE(data, '$._id') = post_rec.post_id;
     END;
   END LOOP;
 
@@ -826,7 +451,7 @@ END;
 /
 ```
 
-### Step 2: Benchmark Real-Time Aggregation
+### Step 3: Benchmark Real-Time Aggregation
 
 ```sql
 -- Test 1: Real-time aggregation (NO computed pattern)
@@ -849,8 +474,8 @@ BEGIN
     SELECT COUNT(*)
     INTO v_like_count
     FROM social_data
-    WHERE JSON_VALUE(json_document, '$.post_id') = 'POST#00025'
-      AND JSON_VALUE(json_document, '$.type') = 'like';
+    WHERE JSON_VALUE(data, '$.post_id') = 'POST#00025'
+      AND JSON_VALUE(data, '$.type') = 'like';
 
     v_end := SYSTIMESTAMP;
     v_duration := EXTRACT(DAY FROM (v_end - v_start)) * 86400000
@@ -876,10 +501,7 @@ Total time for 100 queries: 845.20 ms
 
 **MongoDB Aggregation Pipeline (Real-Time Computation):**
 
-if type="mongodb"
-
 ```javascript
-<copy>
 // Real-time aggregation using MongoDB aggregation pipeline
 // Oracle supports MongoDB aggregation operators!
 
@@ -907,15 +529,7 @@ db.social_data.aggregate([
   {
     $group: {
       _id: "$post_id",
-      like_count: { $sum: 1 },
-      unique_users: { $addToSet: "$user_id" }
-    }
-  },
-  {
-    $project: {
-      post_id: "$_id",
-      like_count: 1,
-      unique_user_count: { $size: "$unique_users" }
+      like_count: { $sum: 1 }
     }
   },
   {
@@ -925,57 +539,11 @@ db.social_data.aggregate([
     $limit: 10
   }
 ])
-
-// Example 3: Calculate average engagement per user
-db.social_data.aggregate([
-  {
-    $match: { type: "post" }
-  },
-  {
-    $group: {
-      _id: "$user_id",
-      total_posts: { $sum: 1 },
-      avg_likes: { $avg: "$engagement.like_count" },
-      avg_comments: { $avg: "$engagement.comment_count" },
-      total_engagement: {
-        $sum: {
-          $add: [
-            "$engagement.like_count",
-            "$engagement.comment_count",
-            "$engagement.share_count"
-          ]
-        }
-      }
-    }
-  },
-  {
-    $sort: { total_engagement: -1 }
-  }
-])
-</copy>
 ```
 
-Expected output (Example 1):
-```javascript
-[
-  {
-    _id: 'POST#00025',
-    like_count: 35
-  }
-]
-```
+> **MongoDB API**: Oracle supports MongoDB aggregation operators including `$match`, `$group`, `$sum`, `$sort`, and `$limit`. Use aggregation pipelines for real-time computation when exact real-time accuracy is required.
 
-> **MongoDB API**: Oracle supports MongoDB aggregation operators including `$match`, `$group`, `$sum`, `$avg`, `$addToSet`, `$project`, and `$sort`. Use aggregation pipelines for real-time computation when:
-> - Exact real-time accuracy is required
-> - Data changes frequently
-> - Complex analytics across multiple fields
-> - Results are needed infrequently
-
-**Trade-off:** Aggregation queries (8-50ms) are slower than reading pre-computed values (1-3ms), but provide real-time accuracy.
-
-/if
-
-### Step 3: Benchmark Computed Pattern
+### Step 4: Benchmark Computed Pattern
 
 ```sql
 -- Test 2: Computed pattern (read pre-computed value)
@@ -995,10 +563,10 @@ BEGIN
     v_start := SYSTIMESTAMP;
 
     -- Read pre-computed value from post document
-    SELECT JSON_VALUE(json_document, '$.engagement.like_count' RETURNING NUMBER)
+    SELECT JSON_VALUE(data, '$.engagement.like_count' RETURNING NUMBER)
     INTO v_like_count
     FROM social_data
-    WHERE JSON_VALUE(json_document, '$._id') = 'POST#00025';
+    WHERE JSON_VALUE(data, '$._id') = 'POST#00025';
 
     v_end := SYSTIMESTAMP;
     v_duration := EXTRACT(DAY FROM (v_end - v_start)) * 86400000
@@ -1022,7 +590,7 @@ Total time for 100 queries: 185.40 ms
 */
 ```
 
-### Step 4: Performance Comparison Summary
+### Step 5: Performance Comparison Summary
 
 ```sql
 -- Summary comparison
@@ -1056,7 +624,7 @@ Key Insights:
 */
 ```
 
-## Task 5: Best Practices for the Computed Pattern
+## Task 6: Best Practices for the Computed Pattern
 
 ### Step 1: Design Checklist
 
@@ -1067,7 +635,7 @@ When implementing the Computed Pattern, follow this checklist:
 - [ ] Determine acceptable staleness for computed values (real-time, 5 min, hourly, daily?)
 - [ ] Design composite keys for time-series computed data (`ENTITY#ID#STATS#YYYY-MM`)
 - [ ] Store metadata about when values were last computed (`computed_at` timestamp)
-- [ ] Keep computed documents small (< 10KB) to avoid LOB storage
+- [ ] Keep computed documents small (< 7,950 bytes) to stay in inline storage
 
 **Update Strategy:**
 - [ ] Choose update strategy: immediate (on write) or batch (scheduled job)
@@ -1126,49 +694,45 @@ When implementing the Computed Pattern, follow this checklist:
 ```
 
 **❌ Anti-Pattern 3: Ignoring Drift Between Computed and Source Data**
-```sql
--- DON'T ignore discrepancies between computed and source data
 
+```sql
 -- DO implement periodic reconciliation
 DECLARE
   v_computed_count NUMBER;
   v_actual_count NUMBER;
 BEGIN
   FOR post_rec IN (
-    SELECT JSON_VALUE(json_document, '$._id') AS post_id
+    SELECT JSON_VALUE(data, '$._id') AS post_id
     FROM social_data
-    WHERE JSON_VALUE(json_document, '$.type') = 'post'
+    WHERE JSON_VALUE(data, '$.type') = 'post'
+    AND ROWNUM <= 100  -- Limit for demo
   ) LOOP
     -- Get computed count
-    SELECT JSON_VALUE(json_document, '$.engagement.like_count' RETURNING NUMBER)
+    SELECT JSON_VALUE(data, '$.engagement.like_count' RETURNING NUMBER)
     INTO v_computed_count
     FROM social_data
-    WHERE JSON_VALUE(json_document, '$._id') = post_rec.post_id;
+    WHERE JSON_VALUE(data, '$._id') = post_rec.post_id;
 
     -- Get actual count
     SELECT COUNT(*)
     INTO v_actual_count
     FROM social_data
-    WHERE JSON_VALUE(json_document, '$.post_id') = post_rec.post_id
-      AND JSON_VALUE(json_document, '$.type') = 'like';
+    WHERE JSON_VALUE(data, '$.post_id') = post_rec.post_id
+      AND JSON_VALUE(data, '$.type') = 'like';
 
     -- Fix drift if found
-    IF v_computed_count != v_actual_count THEN
+    IF NVL(v_computed_count, 0) != v_actual_count THEN
       DBMS_OUTPUT.PUT_LINE('Drift detected for ' || post_rec.post_id ||
-                          ': computed=' || v_computed_count ||
+                          ': computed=' || NVL(v_computed_count, 0) ||
                           ', actual=' || v_actual_count);
 
       UPDATE social_data
-      SET json_document = JSON_MERGEPATCH(
-        json_document,
-        JSON_OBJECT(
-          'engagement' VALUE JSON_OBJECT(
-            'like_count' VALUE v_actual_count,
-            'last_reconciled' VALUE SYSTIMESTAMP
-          )
-        )
+      SET data = JSON_TRANSFORM(
+        data,
+        SET '$.engagement.like_count' = v_actual_count,
+        SET '$.engagement.last_reconciled' = SYSTIMESTAMP
       )
-      WHERE JSON_VALUE(json_document, '$._id') = post_rec.post_id;
+      WHERE JSON_VALUE(data, '$._id') = post_rec.post_id;
     END IF;
   END LOOP;
 
@@ -1177,7 +741,7 @@ END;
 /
 ```
 
-## Conclusion
+## Summary
 
 In this lab, you learned how to implement the Computed Pattern for storing pre-calculated metrics and aggregations within a Single Collection design.
 
@@ -1200,11 +764,12 @@ In this lab, you learned how to implement the Computed Pattern for storing pre-c
 
 ## Learn More
 
-* [Oracle JSON Developer's Guide - JSON Collections](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/overview-of-storage-and-management-of-JSON-data.html)
+* [Oracle AI Database 26ai JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/)
 * [MongoDB Computed Pattern Documentation](https://www.mongodb.com/docs/manual/data-modeling/design-patterns/computed-pattern/)
 * [AWS DynamoDB Advanced Design Patterns](https://aws.amazon.com/dynamodb/resources/)
 
-## Acknowledgments
+## Acknowledgements
 
 * **Author** - Rick Houlihan
-* **Last Updated By/Date** - November 2024
+* **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
+* **Last Updated By/Date** - Rick Houlihan, November 2025

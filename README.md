@@ -2,20 +2,20 @@
 ## Oracle LiveLabs Workshop
 
 **Status:** Active Development (95% Complete)
-**Last Updated:** November 2024
-**Version:** 2.0
+**Last Updated:** November 2025
+**Version:** 2.1
 
 ---
 
 ## 📋 Overview
 
-This Oracle LiveLabs workshop teaches document data modeling for Oracle JSON Collections using proven NoSQL design patterns. Learn how to design high-performance document models that maximize query efficiency and leverage Oracle Database 23ai/26ai features.
+This Oracle LiveLabs workshop teaches document data modeling for Oracle JSON Collections using proven NoSQL design patterns. Learn how to design high-performance document models that maximize query efficiency and leverage Oracle AI Database 26ai features.
 
 ### Workshop Details
 - **Duration:** 6.5 hours total (Foundation series: 3.5 hours)
 - **Labs:** 11 labs (Lab 0-10)
 - **Target Audience:** Database developers new to NoSQL/document modeling
-- **Deployment:** Oracle Autonomous Database Free Tier or Oracle Database 23ai Free
+- **Deployment:** Oracle Autonomous AI JSON Database or Oracle AI Database 26ai Free (Docker)
 - **Part of:** Three-part workshop series on JSON document modeling
 
 ---
@@ -192,16 +192,16 @@ This approach, developed for DynamoDB and adopted across the NoSQL industry, sta
 
 ## 🛠️ Oracle-Specific Features
 
-This workshop leverages Oracle Database 23ai/26ai JSON capabilities:
+This workshop leverages Oracle AI Database 26ai JSON capabilities:
 
+- **JSON Collection Tables** - Native single-column tables for JSON documents (`CREATE JSON COLLECTION TABLE`)
 - **OSON Binary Format** - Optimized storage with 32MB limit and performance tiers
-- **JSON Collections** - Native support for document collections
 - **SQL/JSON Functions** - Query JSON using standard SQL
 - **Multivalue Indexes** - Index array elements for efficient queries
 - **Search Indexes** - Full-text search across JSON documents
-- **Partial Indexes (23ai)** - Index specific document types
+- **Partial Indexes** - Index specific document types
 - **JSON Duality Views** - Bridge relational and document models
-- **MongoDB API Compatibility** - Use MongoDB drivers with Oracle
+- **MongoDB API Compatibility** - Use MongoDB drivers with Oracle (requires ACL configuration)
 
 ---
 
@@ -217,9 +217,29 @@ This workshop leverages Oracle Database 23ai/26ai JSON capabilities:
 ### Quick Start
 
 1. **Access the workshop** - Available on Oracle LiveLabs (link TBD)
-2. **Provision database** - Follow Lab 0 to set up Oracle Database 23ai Free or Autonomous Database
+2. **Provision database** - Follow Lab 0 to set up Oracle AI Database 26ai Free (Docker) or Autonomous AI JSON Database
 3. **Complete labs in sequence** - Start with Lab 0 and progress through Lab 3 (Foundation series)
 4. **Refer to pattern guides** - Use [docs/](docs/) for deep-dives and references
+
+### Docker Quick Start (26ai Free)
+
+```bash
+# Pull the Oracle AI Database 26ai Free image
+docker pull ghcr.io/oracle/adb-free:latest-26ai
+
+# Run the container
+docker run -d \
+  --name oracle26ai \
+  -p 1521:1521 -p 1522:1522 -p 8443:8443 -p 27017:27017 \
+  -e WORKLOAD_TYPE=ATP \
+  -e WALLET_PASSWORD=WalletPass1234 \
+  -e ADMIN_PASSWORD=WelcomeOracle1 \
+  --cap-add SYS_ADMIN \
+  --device /dev/fuse \
+  ghcr.io/oracle/adb-free:latest-26ai
+
+# Access Database Actions at https://localhost:8443/ords/sql-developer
+```
 
 ### Resources
 
@@ -241,14 +261,14 @@ For security vulnerabilities, see [docs/SECURITY.md](docs/SECURITY.md).
 ## 📚 Learn More
 
 ### Oracle Documentation
-- [Oracle JSON Collections](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/json-collections.html)
-- [Oracle Database 23ai JSON Features](https://docs.oracle.com/en/database/oracle/oracle-database/23/newft/)
-- [OSON Binary Format](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/oson-format.html)
+- [Oracle AI Database 26ai](https://www.oracle.com/database/ai-native-database-26ai/)
+- [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/)
+- [JSON Collection Tables](https://oracle-base.com/articles/23/json-collections-23)
+- [Oracle Database API for MongoDB](https://docs.oracle.com/en/database/oracle/mongodb-api/)
 
 ### Industry Patterns
 - [AWS DynamoDB Design Patterns](https://aws.amazon.com/dynamodb/resources/)
 - [MongoDB Building with Patterns](https://www.mongodb.com/blog/post/building-with-patterns-a-summary)
-- [Oracle Database API for MongoDB](https://docs.oracle.com/en/database/oracle/mongodb-api/)
 
 ---
 
@@ -263,7 +283,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at https://oss.or
 
 **Author:** Rick Houlihan
 **Contributors:** Oracle JSON Development Team, Oracle LiveLabs Team
-**Last Updated:** November 2024
+**Last Updated:** November 2025
 
 ---
 

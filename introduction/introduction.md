@@ -33,7 +33,7 @@ This workshop teaches document modeling based on industry best practices:
 
 - **DynamoDB Single Table Design patterns**
 - **MongoDB Single Collection Pattern**
-- **Oracle JSON Collections 23ai/26ai** optimizations
+- **Oracle AI Database 26ai** JSON Collection Tables
 
 ### Objectives
 
@@ -43,10 +43,10 @@ In this workshop, you will:
 * **Learn the Single Collection/Table Design pattern** - the key to avoiding LOB performance cliffs
 * **Learn composite key strategies** for hierarchical entity relationships
 * **Apply strategic denormalization** to eliminate application-level joins
-* **Implement Oracle JSON Collections** with OSON binary format optimization
+* **Implement Oracle JSON Collection Tables** with OSON binary format optimization
 * **Use multivalue indexes** to query array values efficiently
 * **Measure and compare** performance of different modeling approaches
-* **Deploy and configure** Oracle Database 23ai Free or Autonomous Database Free Tier
+* **Deploy and configure** Oracle AI Database 26ai Free (Docker) or Autonomous AI JSON Database
 * **Write optimized queries** using both SQL and MongoDB-compatible API
 
 ### Prerequisites
@@ -94,10 +94,11 @@ Throughout this workshop, you will work with realistic use cases:
 - Industry-proven techniques from AWS and MongoDB communities
 
 **4. Oracle-Specific Optimizations**
+- JSON Collection Tables with single `DATA` column
 - OSON binary format and performance tiers
 - Multivalue indexes for array queries
 - JSON Duality Views (introduced in Lab 10)
-- Oracle Database 23ai/26ai features
+- Oracle AI Database 26ai features
 
 ### Key Performance Results You Will Achieve
 
@@ -148,23 +149,23 @@ Application-level assembly
 
 This workshop uses:
 
-- **Oracle Database 23ai Free** or **Autonomous Database Free Tier**
-- **Oracle JSON Collections** with OSON binary format
+- **Oracle AI Database 26ai Free** (Docker) or **Autonomous AI JSON Database**
+- **JSON Collection Tables** with single `DATA` column of type JSON
 - **SQL/JSON functions** for querying JSON documents
 - **MongoDB-compatible API** (Oracle Database API for MongoDB)
-- **SQL Developer Web** or **Database Actions** for SQL execution
+- **Database Actions** for SQL execution
 - **Python, Node.js, Java** code examples (optional)
 
 ### Workshop Flow
 
 **Lab 0: Setup (30 minutes)**
-- Provision Oracle Database (23ai Free or Autonomous Database Free Tier)
-- Configure JSON Collections
+- Provision Oracle Database (26ai Free Docker or Autonomous AI JSON Database)
+- Create JSON Collection Tables
 - Load sample data
 - Verify environment
 
 **Lab 1: JSON Collections Fundamentals (30 minutes)**
-- Create JSON collections
+- Create JSON Collection Tables
 - Insert, query, and update documents
 - Understand OSON binary format
 - Compare SQL and MongoDB API syntax
@@ -187,7 +188,7 @@ This workshop uses:
 
 By the end of this workshop, you will have:
 
-1. **Working Oracle Database** with JSON Collections configured
+1. **Working Oracle AI Database 26ai** with JSON Collection Tables configured
 2. **E-commerce data model** with 10,000+ documents
 3. **Performance comparison scripts** demonstrating pattern efficiency
 4. **Single Collection implementation** following industry best practices
@@ -211,16 +212,17 @@ By the end of this workshop, you will have:
 **The Key Insight:**
 > "In the cloud era, storage is cheap but compute is expensive. Design for query performance, not storage minimization."
 
-### Oracle JSON Collections Advantages
+### Oracle JSON Collection Tables Advantages
 
-Oracle JSON Collections combine the best of both worlds:
+Oracle JSON Collection Tables combine the best of both worlds:
 
 - **Native JSON support** with SQL/JSON query capabilities
+- **Simple table structure** - single `DATA` column of type JSON
 - **ACID transactions** unlike most NoSQL databases
 - **OSON binary format** for optimal storage and performance
 - **Multivalue indexes** for efficient array queries
 - **JSON Duality Views** to bridge relational and document models
-- **MongoDB compatibility** for easy migration
+- **MongoDB compatibility** for easy migration (requires ACL configuration)
 - **Enterprise features** (backup, security, high availability)
 
 ### Get Help
@@ -243,8 +245,9 @@ This workshop was developed by Oracle Database experts in collaboration with the
 
 ## Learn More
 
-* [Oracle JSON Collections Documentation](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/json-collections.html)
-* [Oracle Database 23ai JSON Features](https://docs.oracle.com/en/database/oracle/oracle-database/23/newft/)
+* [Oracle AI Database 26ai](https://www.oracle.com/database/ai-native-database-26ai/)
+* [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/)
+* [JSON Collection Tables in Oracle Database](https://oracle-base.com/articles/23/json-collections-23)
 * [AWS DynamoDB Design Patterns](https://aws.amazon.com/dynamodb/resources/)
 * [MongoDB Building with Patterns](https://www.mongodb.com/blog/post/building-with-patterns-a-summary)
 * [Oracle Database API for MongoDB](https://docs.oracle.com/en/database/oracle/mongodb-api/)
@@ -253,4 +256,4 @@ This workshop was developed by Oracle Database experts in collaboration with the
 
 * **Author** - Rick Houlihan
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
-* **Last Updated By/Date** - Rick Houlihan, November 2024
+* **Last Updated By/Date** - Rick Houlihan, November 2025

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In this lab, you will provision an Oracle Database and configure it for JSON Collections development. You have two options: **Oracle Autonomous Database Free Tier** (cloud-based) or **Oracle Database 23ai Free** (local Docker container). Both options provide full JSON Collections capabilities.
+In this lab, you will provision an Oracle Database and configure it for JSON Collections development. You have two options: **Oracle Autonomous AI JSON Database** (cloud-based) or **Oracle AI Database 26ai Free** (local Docker container). Both options provide full JSON Collections capabilities.
 
 Estimated Time: 30 minutes
 
@@ -10,19 +10,18 @@ Estimated Time: 30 minutes
 
 In this lab, you will:
 
-* Choose between Autonomous Database Free Tier or Oracle Database 23ai Free
+* Choose between Autonomous AI JSON Database or Oracle AI Database 26ai Free
 * Provision and configure your Oracle Database
 * Connect to the database using SQL Developer Web or Database Actions
-* Enable JSON Collections
-* Create your first JSON collection
+* Create your first JSON Collection Table
 * Verify your environment is ready for the workshop
 
 ### Prerequisites
 
 This lab assumes you have:
 
-* An Oracle Cloud account (for Autonomous Database Free Tier option) **OR**
-* Docker Desktop installed (for 23ai Free option)
+* An Oracle Cloud account (for Autonomous AI JSON Database option) **OR**
+* Docker Desktop installed (for 26ai Free option)
 * A web browser (Chrome, Firefox, or Edge recommended)
 * Internet connection
 
@@ -30,7 +29,7 @@ This lab assumes you have:
 
 You have two options for this workshop. Choose the one that best fits your needs:
 
-### Option A: Autonomous Database Free Tier (Recommended)
+### Option A: Autonomous AI JSON Database (Recommended)
 
 **Advantages:**
 - No local installation required
@@ -38,6 +37,7 @@ You have two options for this workshop. Choose the one that best fits your needs
 - Automatic backups and updates
 - Production-grade infrastructure
 - Free forever (up to 2 databases)
+- MongoDB API included
 
 **Requirements:**
 - Oracle Cloud account (Free Tier available)
@@ -45,13 +45,14 @@ You have two options for this workshop. Choose the one that best fits your needs
 
 **Best for:** Users who want a cloud-based environment or don't have Docker installed
 
-### Option B: Oracle Database 23ai Free (Docker)
+### Option B: Oracle AI Database 26ai Free (Docker)
 
 **Advantages:**
 - Runs entirely on your local machine
 - No cloud account required
 - Fastest performance (local)
-- Latest Oracle Database 23ai features
+- Latest Oracle AI Database 26ai features
+- MongoDB API included
 
 **Requirements:**
 - Docker Desktop installed
@@ -63,9 +64,9 @@ You have two options for this workshop. Choose the one that best fits your needs
 
 **Choose one option and proceed to the corresponding task below.**
 
-## Task 2A: Provision Autonomous Database Free Tier
+## Task 2A: Provision Autonomous AI JSON Database
 
-> **Note:** If you chose Option B (23ai Free), skip to Task 2B.
+> **Note:** If you chose Option B (26ai Free Docker), skip to Task 2B.
 
 ### Step 1: Sign in to Oracle Cloud
 
@@ -75,7 +76,7 @@ You have two options for this workshop. Choose the one that best fits your needs
 
 3. Select your **tenancy** and sign in
 
-### Step 2: Create Autonomous JSON Database
+### Step 2: Create Autonomous AI JSON Database
 
 1. From the Oracle Cloud Console navigation menu (hamburger icon ≡), select:
    - **Oracle Database** → **Autonomous Database**
@@ -90,13 +91,13 @@ You have two options for this workshop. Choose the one that best fits your needs
 
    **Database name:** `JSONDB`
 
-   **Workload type:** Select **JSON**
+   **Workload type:** Select **JSON** (Autonomous AI JSON Database)
 
    **Deployment type:** Select **Serverless**
 
    **Always Free:** Toggle **ON** (ensure the "Always Free" option is enabled)
 
-   **Database version:** Select **23ai** (or latest available)
+   **Database version:** Select **26ai** (or latest available)
 
 4. Under **Create administrator credentials**:
 
@@ -106,11 +107,14 @@ You have two options for this workshop. Choose the one that best fits your needs
 
    > **IMPORTANT:** Save this password securely - you will need it throughout the workshop
 
-5. Under **Network access**:
+5. Under **Network access** (IMPORTANT for MongoDB API):
 
-   - Select **Secure access from everywhere**
+   - Select **Secure access from allowed IPs and VCNs only**
+   - Click **Add My IP Address** to add your current IP to the Access Control List (ACL)
 
-   > **Note:** For production environments, you would configure VCN access
+   > **Note:** MongoDB API requires ACL configuration. "Secure access from everywhere" will NOT allow MongoDB API access. You must configure an Access Control List (ACL) or use a private endpoint.
+
+   > **Tip:** Your public IP address may change. If you lose database access later, check your ACL configuration first. You can find your current IP at [ifconfig.me](https://ifconfig.me).
 
 6. Under **License type**:
 
@@ -120,9 +124,19 @@ You have two options for this workshop. Choose the one that best fits your needs
 
    The database will take 2-3 minutes to provision. Wait for the status to change from **PROVISIONING** to **AVAILABLE** (green icon).
 
-### Step 3: Access Database Actions
+### Step 3: Enable MongoDB API
 
-1. Once your database is **AVAILABLE**, click the **Database Actions** button
+1. Once your database is **AVAILABLE**, go to the **Tool configuration** tab
+
+2. Click **Edit** next to MongoDB API
+
+3. Select **Enable** and click **Apply**
+
+   The MongoDB API URL will appear once enabled. Save this URL for later use.
+
+### Step 4: Access Database Actions
+
+1. On your database details page, click the **Database Actions** button
 
 2. Sign in with:
    - **Username:** `ADMIN`
@@ -139,9 +153,9 @@ You have two options for this workshop. Choose the one that best fits your needs
 
 **Proceed to Task 3**
 
-## Task 2B: Setup Oracle Database 23ai Free with Docker
+## Task 2B: Setup Oracle AI Database 26ai Free with Docker
 
-> **Note:** If you chose Option A (Autonomous Database Free Tier), skip to Task 3.
+> **Note:** If you chose Option A (Autonomous AI JSON Database), skip to Task 3.
 
 ### Step 1: Verify Docker Installation
 
@@ -163,42 +177,56 @@ You have two options for this workshop. Choose the one that best fits your needs
 
    If Docker is not running, start Docker Desktop.
 
-### Step 2: Pull Oracle Database 23ai Free Image
+### Step 2: Pull Oracle AI Database 26ai Free Image
 
-1. Pull the latest Oracle Database 23ai Free image:
+1. Pull the Oracle AI Database 26ai Free container image:
 
    ```bash
-   docker pull container-registry.oracle.com/database/free:latest
+   docker pull ghcr.io/oracle/adb-free:latest-26ai
    ```
 
    This will download approximately 3GB of data. The download may take 5-15 minutes depending on your internet connection.
 
-### Step 3: Run Oracle Database 23ai Free Container
+   > **Note:** The `latest-26ai` tag ensures you get the 26ai version. The `latest` tag pulls the 19c version.
+
+### Step 3: Run Oracle AI Database 26ai Free Container
 
 1. Create and start the container:
 
    ```bash
    docker run -d \
-     --name oracle23ai \
+     --name oracle26ai \
      -p 1521:1521 \
-     -p 5500:5500 \
-     -e ORACLE_PWD=Welcome123456 \
-     container-registry.oracle.com/database/free:latest
+     -p 1522:1522 \
+     -p 8443:8443 \
+     -p 27017:27017 \
+     -e WORKLOAD_TYPE=ATP \
+     -e WALLET_PASSWORD=WalletPass1234 \
+     -e ADMIN_PASSWORD=WelcomeOracle1 \
+     --cap-add SYS_ADMIN \
+     --device /dev/fuse \
+     ghcr.io/oracle/adb-free:latest-26ai
    ```
 
    **Parameter explanation:**
    - `-d`: Run container in detached mode (background)
-   - `--name oracle23ai`: Container name
-   - `-p 1521:1521`: Database listener port
-   - `-p 5500:5500`: Enterprise Manager Express port
-   - `-e ORACLE_PWD=Welcome123456`: SYSTEM and SYS password
+   - `--name oracle26ai`: Container name
+   - `-p 1521:1521`: Database listener port (TLS)
+   - `-p 1522:1522`: Database listener port (mTLS)
+   - `-p 8443:8443`: HTTPS port for Database Actions/APEX
+   - `-p 27017:27017`: MongoDB API port
+   - `-e WORKLOAD_TYPE=ATP`: Autonomous Transaction Processing workload
+   - `-e WALLET_PASSWORD`: Password for wallet encryption (8-30 chars with letters and numbers/special chars)
+   - `-e ADMIN_PASSWORD`: ADMIN user password (12-30 chars with uppercase, lowercase, and numbers)
+   - `--cap-add SYS_ADMIN`: Required capability for the container
+   - `--device /dev/fuse`: Required device for the container
 
-   > **IMPORTANT:** Change `Welcome123456` to your own secure password if desired
+   > **IMPORTANT:** The ADMIN_PASSWORD must be 12-30 characters with at least one uppercase, one lowercase, and one numeric character
 
 2. Monitor the database startup:
 
    ```bash
-   docker logs -f oracle23ai
+   docker logs -f oracle26ai
    ```
 
    Wait for the message: **DATABASE IS READY TO USE!**
@@ -209,45 +237,56 @@ You have two options for this workshop. Choose the one that best fits your needs
 
 ### Step 4: Connect to Database
 
-1. Access the database using SQL*Plus:
+1. Access Database Actions in your browser:
+
+   ```
+   https://localhost:8443/ords/sql-developer
+   ```
+
+   - **Username:** ADMIN
+   - **Password:** WelcomeOracle1 (or your ADMIN_PASSWORD)
+
+   > **Note:** You may see a certificate warning - this is expected for the self-signed certificate. Click "Advanced" and proceed.
+
+2. Alternatively, access the database using SQL*Plus from within the container:
 
    ```bash
-   docker exec -it oracle23ai sqlplus sys/Welcome123456@FREE as sysdba
+   docker exec oracle26ai bash -c "export TNS_ADMIN=/u01/app/oracle/wallets/tls_wallet && sqlplus admin/WelcomeOracle1@myatp_low"
    ```
 
-   > **Note:** Replace `Welcome123456` with your password if you changed it
+   > **Note:** Replace `WelcomeOracle1` with your ADMIN_PASSWORD if you changed it.
+   > The database name is `myatp` (for ATP workload type) with service levels: `_low`, `_medium`, `_high`, `_tp`, `_tpurgent`.
 
-2. Alternatively, access Enterprise Manager Express in your browser:
+3. The MongoDB API is available at:
 
    ```
-   https://localhost:5500/em
+   mongodb://admin:WelcomeOracle1@localhost:27017/admin?authMechanism=PLAIN&authSource=$external&tls=true&tlsAllowInvalidCertificates=true
    ```
 
-   - **Container Name:** FREE
-   - **Username:** SYSTEM
-   - **Password:** Welcome123456 (or your password)
+4. Verify the database version:
 
-   > **Note:** You may see a certificate warning - this is expected for the self-signed certificate
+   ```bash
+   docker exec oracle26ai bash -c "export TNS_ADMIN=/u01/app/oracle/wallets/tls_wallet && echo 'SELECT banner_full FROM v\$version WHERE ROWNUM = 1;' | sqlplus -s admin/WelcomeOracle1@myatp_low"
+   ```
 
-3. For this workshop, we recommend using SQL Developer Web. To enable it, run:
-
-   ```sql
-   -- Connect as SYSTEM first
-   sqlplus system/Welcome123456@localhost:1521/FREEPDB1
-
-   -- Enable ORDS for SQL Developer Web
-   EXEC ORDS.ENABLE_SCHEMA;
+   Expected output:
+   ```
+   BANNER_FULL
+   --------------------------------------------------------------------------------
+   Oracle AI Database 26ai Enterprise Edition Release 23.26.0.1.0 - for Oracle Cloud
+   and Engineered Systems
+   Version 23.26.0.1.0
    ```
 
 **Proceed to Task 3**
 
-## Task 3: Create Workshop User and Enable JSON Collections
+## Task 3: Create Workshop User
 
-Both Autonomous Database Free Tier and 23ai Free users continue with this task.
+Both Autonomous AI JSON Database and 26ai Free Docker users continue with this task.
 
 ### Step 1: Create Workshop User
 
-1. In your SQL worksheet (Database Actions for Autonomous Database, or SQL*Plus for 23ai), create a new user:
+1. In your SQL worksheet (Database Actions), create a new user:
 
    ```sql
    -- Create workshop user
@@ -258,9 +297,7 @@ Both Autonomous Database Free Tier and 23ai Free users continue with this task.
    GRANT UNLIMITED TABLESPACE TO jsonuser;
    GRANT CREATE VIEW TO jsonuser;
    GRANT CREATE MATERIALIZED VIEW TO jsonuser;
-
-   -- Grant JSON-specific privileges
-   GRANT SODA_APP TO jsonuser;
+   GRANT CREATE SESSION TO jsonuser;
    ```
 
    **Expected output:**
@@ -272,8 +309,6 @@ Both Autonomous Database Free Tier and 23ai Free users continue with this task.
    Grant succeeded.
    Grant succeeded.
    ```
-
-   > **Note:** `SODA_APP` role provides privileges for Simple Oracle Document Access (SODA), the foundation for JSON Collections
 
 2. Verify the user was created:
 
@@ -292,45 +327,42 @@ Both Autonomous Database Free Tier and 23ai Free users continue with this task.
 
 ### Step 2: Connect as JSONUSER
 
-1. **For Autonomous Database Free Tier users:**
+1. **For Autonomous AI JSON Database users:**
    - Sign out from Database Actions (click user icon → Sign Out)
    - Sign back in with:
      - **Username:** `JSONUSER`
      - **Password:** `WelcomeJson#123`
 
-2. **For 23ai Free users:**
-   - Exit SQL*Plus (type `EXIT`)
-   - Connect as JSONUSER:
+2. **For 26ai Free Docker users:**
+   - Sign out from Database Actions
+   - Sign back in with JSONUSER credentials, OR
+   - Connect via SQL*Plus:
 
    ```bash
-   docker exec -it oracle23ai sqlplus jsonuser/WelcomeJson#123@FREE
+   docker exec oracle26ai bash -c "export TNS_ADMIN=/u01/app/oracle/wallets/tls_wallet && sqlplus jsonuser/WelcomeJson#123@myatp_low"
    ```
 
-## Task 4: Create Your First JSON Collection
+## Task 4: Create Your First JSON Collection Table
 
-JSON Collections in Oracle Database are schema-flexible collections of JSON documents, similar to MongoDB collections or DynamoDB tables.
+JSON Collection Tables in Oracle AI Database 26ai are schema-flexible collections of JSON documents, similar to MongoDB collections or DynamoDB tables.
 
-### Step 1: Understand JSON Collection Basics
+### Step 1: Understand JSON Collection Tables
 
-Oracle Database provides two ways to work with JSON:
+Oracle AI Database 26ai introduces **JSON Collection Tables** - optimized single-column tables for storing JSON documents:
 
-1. **SQL/JSON** - Use SQL with JSON functions
-2. **SODA (Simple Oracle Document Access)** - MongoDB-compatible API
+- Single `DATA` column of type JSON
+- Automatic `_id` field generation for each document
+- Full SQL/JSON query capabilities
+- MongoDB API compatible
+- Support for partitioning and indexing
 
-We will use **SQL/JSON** as the primary method, with SODA examples provided.
+### Step 2: Create a JSON Collection Table
 
-### Step 2: Create a JSON Collection
-
-1. Create a simple JSON collection:
+1. Create your first JSON Collection Table:
 
    ```sql
-   -- Create a JSON collection using SQL
-   -- This creates a table optimized for JSON documents
-   CREATE TABLE test_collection (
-     id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-     json_document JSON,
-     CONSTRAINT ensure_json CHECK (json_document IS JSON)
-   );
+   -- Create a JSON Collection Table (26ai syntax)
+   CREATE JSON COLLECTION TABLE test_collection;
    ```
 
    **Expected output:**
@@ -341,28 +373,40 @@ We will use **SQL/JSON** as the primary method, with SODA examples provided.
 2. Verify the collection was created:
 
    ```sql
-   SELECT table_name, column_name, data_type
-   FROM user_tab_columns
-   WHERE table_name = 'TEST_COLLECTION'
-   ORDER BY column_id;
+   SELECT collection_name, collection_type
+   FROM user_json_collections
+   WHERE collection_name = 'TEST_COLLECTION';
    ```
 
    Expected output:
    ```
-   TABLE_NAME        COLUMN_NAME     DATA_TYPE
-   ---------------   -------------   ---------
-   TEST_COLLECTION   ID              RAW
-   TEST_COLLECTION   JSON_DOCUMENT   JSON
+   COLLECTION_NAME      COLLECTION_TYPE
+   -------------------- ---------------
+   TEST_COLLECTION      TABLE
    ```
 
-   > **Note:** The table has an `ID` column (primary key) and a `JSON_DOCUMENT` column to store JSON documents
+3. Examine the table structure:
+
+   ```sql
+   DESC test_collection
+   ```
+
+   Expected output:
+   ```
+   Name   Null?    Type
+   ----   -----    ----
+   DATA            JSON
+   ```
+
+   > **Note:** JSON Collection Tables have a single `DATA` column of type JSON.
+   > The database automatically manages document IDs via the `_id` field.
 
 ### Step 3: Insert Your First JSON Document
 
 1. Insert a document using SQL:
 
    ```sql
-   INSERT INTO test_collection (json_document)
+   INSERT INTO test_collection (data)
    VALUES (
      JSON_OBJECT(
        '_id' VALUE 'doc001',
@@ -383,10 +427,12 @@ We will use **SQL/JSON** as the primary method, with SODA examples provided.
    Commit complete.
    ```
 
+   > **Note:** You can provide a custom `_id` value (like 'doc001') or omit it to let the database generate one automatically.
+
 2. Query the document:
 
    ```sql
-   SELECT JSON_SERIALIZE(json_document PRETTY)
+   SELECT JSON_SERIALIZE(data PRETTY)
    FROM test_collection;
    ```
 
@@ -411,9 +457,9 @@ We will use **SQL/JSON** as the primary method, with SODA examples provided.
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$._id') AS id,
-     JSON_VALUE(json_document, '$.name') AS name,
-     JSON_VALUE(json_document, '$.email') AS email
+     JSON_VALUE(data, '$._id') AS id,
+     JSON_VALUE(data, '$.name') AS name,
+     JSON_VALUE(data, '$.email') AS email
    FROM test_collection;
    ```
 
@@ -432,8 +478,8 @@ Oracle stores JSON documents in **OSON (Oracle Optimized Binary JSON)** format f
 
    ```sql
    SELECT
-     JSON_VALUE(json_document, '$._id') AS id,
-     LENGTH(json_document) AS oson_bytes
+     JSON_VALUE(data, '$._id') AS id,
+     LENGTHB(data) AS oson_bytes
    FROM test_collection;
    ```
 
@@ -444,29 +490,31 @@ Oracle stores JSON documents in **OSON (Oracle Optimized Binary JSON)** format f
    doc001     163
    ```
 
-2. Understanding OSON performance tiers:
+2. Understanding OSON storage tiers:
 
-   - **Inline storage** (< 7,950 bytes): Fastest performance
-   - **LOB storage** (7,950 bytes - 32MB): Slower performance
+   - **Inline storage** (< ~7,950 bytes): Fastest performance - document stored in table row
+   - **Out-of-line/LOB storage** (≥ ~7,950 bytes): Slower - requires additional I/O
    - **Maximum document size:** 32MB
 
-   > **Key Insight:** Keeping documents under 7,950 bytes (inline storage) provides the best performance. This workshop will teach you how to design documents to stay within optimal size ranges.
+   > **Key Insight:** The performance difference between inline and out-of-line storage is significant. Keep frequently-accessed documents under 7,950 bytes whenever possible. This workshop will teach you how to design documents to stay within optimal size ranges.
 
 ## Task 5: Verify Environment Setup
 
 ### Step 1: Check JSON Collections Feature
 
-1. Verify JSON is enabled:
+1. Verify your JSON Collection Tables:
 
    ```sql
-   SELECT
-     PROPERTY_NAME,
-     PROPERTY_VALUE
-   FROM DATABASE_PROPERTIES
-   WHERE PROPERTY_NAME = 'COMPATIBLE';
+   SELECT collection_name, collection_type
+   FROM user_json_collections;
    ```
 
-   The version should be 19.0.0 or higher (23ai recommended).
+   Expected output:
+   ```
+   COLLECTION_NAME      COLLECTION_TYPE
+   -------------------- ---------------
+   TEST_COLLECTION      TABLE
+   ```
 
 ### Step 2: Create Performance Metrics Table
 
@@ -515,20 +563,20 @@ You will use this table throughout the workshop to track performance benchmarks.
 
    ```sql
    -- JSON_VALUE: Extract scalar values
-   SELECT JSON_VALUE(json_document, '$.name') FROM test_collection;
+   SELECT JSON_VALUE(data, '$.name') FROM test_collection;
 
    -- JSON_QUERY: Extract objects or arrays
-   SELECT JSON_QUERY(json_document, '$.skills') FROM test_collection;
+   SELECT JSON_QUERY(data, '$.skills') FROM test_collection;
 
    -- JSON_EXISTS: Check if path exists
    SELECT COUNT(*)
    FROM test_collection
-   WHERE JSON_EXISTS(json_document, '$.skills');
+   WHERE JSON_EXISTS(data, '$.skills');
 
    -- JSON_TABLE: Convert JSON to relational rows
    SELECT jt.*
    FROM test_collection,
-     JSON_TABLE(json_document, '$.skills[*]'
+     JSON_TABLE(data, '$.skills[*]'
        COLUMNS (skill VARCHAR2(50) PATH '$')
      ) jt;
    ```
@@ -595,10 +643,10 @@ You can either:
 
 Before proceeding to Lab 1, verify you have completed:
 
-- [ ] Oracle Database provisioned (Autonomous Database Free Tier OR 23ai Free)
-- [ ] Connected to database using SQL interface
+- [ ] Oracle Database provisioned (Autonomous AI JSON Database OR 26ai Free Docker)
+- [ ] Connected to database using Database Actions SQL interface
 - [ ] Created JSONUSER with proper privileges
-- [ ] Created first JSON collection (test_collection)
+- [ ] Created first JSON Collection Table (test_collection)
 - [ ] Inserted and queried test document
 - [ ] Created performance_metrics table
 - [ ] Tested JSON query functions (JSON_VALUE, JSON_QUERY, etc.)
@@ -614,7 +662,17 @@ If you checked all items, you are ready to proceed to **Lab 1: JSON Collections 
 - Verify you are using the correct username (JSONUSER, not ADMIN)
 - Ensure your password is correct (remember: case-sensitive)
 - Check that database status is AVAILABLE (not STOPPED or PROVISIONING)
+- If using MongoDB API, verify your IP is in the ACL (Access Control List)
 - Try signing out and signing back in
+
+### Issue: MongoDB API URL not showing
+
+**Solution:**
+- MongoDB API requires ACL configuration - "Secure access from everywhere" will not work
+- Go to your database details → Network → Edit Access Control List
+- Add your IP address using "Add My IP Address"
+- Wait a few minutes for the configuration to apply
+- Check the Tool Configuration tab for the MongoDB API URL
 
 ### Issue: Docker container won't start
 
@@ -624,39 +682,41 @@ If you checked all items, you are ready to proceed to **Lab 1: JSON Collections 
 docker ps -a
 
 # View container logs
-docker logs oracle23ai
+docker logs oracle26ai
 
 # If container exists but is stopped, start it
-docker start oracle23ai
+docker start oracle26ai
 
 # If container is corrupted, remove and recreate
-docker rm -f oracle23ai
+docker rm -f oracle26ai
 # Then re-run the docker run command from Task 2B, Step 3
 ```
 
-### Issue: SODA_APP role does not exist
+### Issue: Password validation error on container startup
+
+**Error:** `The ADMIN_PASSWORD must be between 12 and 30 characters long...`
 
 **Solution:**
-- Verify you are running Oracle Database 19c or higher
-- Ensure JSON features are enabled (should be by default in 23ai and Autonomous Database)
-- Grant alternative privileges:
+- Ensure ADMIN_PASSWORD is 12-30 characters
+- Must include at least one uppercase letter
+- Must include at least one lowercase letter
+- Must include at least one numeric character
+- Example: `WelcomeOracle1`
 
-```sql
-GRANT CREATE TABLE, CREATE INDEX TO jsonuser;
+### Issue: TNS could not resolve connect identifier
+
+**Solution:**
+- Set the TNS_ADMIN environment variable before connecting:
+```bash
+docker exec oracle26ai bash -c "export TNS_ADMIN=/u01/app/oracle/wallets/tls_wallet && sqlplus admin/WelcomeOracle1@myatp_low"
 ```
+- The database name is `myatp` with service levels: `_low`, `_medium`, `_high`
 
 ### Issue: JSON functions not recognized
 
 **Solution:**
-- Verify database compatibility:
-
-```sql
-SELECT PROPERTY_VALUE
-FROM DATABASE_PROPERTIES
-WHERE PROPERTY_NAME = 'COMPATIBLE';
-```
-
 - Ensure you are connected as JSONUSER (not ADMIN or SYSTEM)
+- Verify you're using the correct column name (`data` for JSON Collection Tables)
 
 ### Issue: Cannot create collection
 
@@ -664,31 +724,31 @@ WHERE PROPERTY_NAME = 'COMPATIBLE';
 
 **Solution:**
 ```sql
--- Drop existing collection
-BEGIN
-  DBMS_SODA.DROP_COLLECTION('test_collection');
-END;
-/
+-- For 26ai, simply drop the table
+DROP TABLE test_collection;
 
--- Recreate collection
-DECLARE
-  collection SODA_COLLECTION_T;
-BEGIN
-  collection := DBMS_SODA.CREATE_COLLECTION('test_collection');
-END;
-/
+-- Recreate the JSON Collection Table
+CREATE JSON COLLECTION TABLE test_collection;
 ```
+
+### Issue: CREATE JSON COLLECTION TABLE not recognized
+
+**Solution:**
+- Ensure you are using Oracle AI Database 26ai or later
+- This syntax is not available in older database versions
+- For older versions, create a regular table with a JSON column instead
 
 ## Learn More
 
-* [Oracle Autonomous Database Free Tier](https://www.oracle.com/autonomous-database/free-trial/)
-* [Oracle Database 23ai Free](https://www.oracle.com/database/free/)
-* [JSON Collections in Oracle Database](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/json-collections.html)
-* [SODA (Simple Oracle Document Access)](https://docs.oracle.com/en/database/oracle/simple-oracle-document-access/)
-* [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/23/adjsn/)
+* [Oracle Autonomous AI JSON Database](https://www.oracle.com/autonomous-database/autonomous-json-database/)
+* [Oracle AI Database 26ai Free](https://www.oracle.com/database/free/)
+* [JSON Collection Tables in Oracle Database](https://oracle-base.com/articles/23/json-collections-23)
+* [Oracle Database API for MongoDB](https://docs.oracle.com/en/database/oracle/mongodb-api/)
+* [Oracle JSON Developer's Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/)
+* [MongoDB API ACL Configuration](https://martincarstenbach.com/2024/10/25/enable-the-mongodb-api-on-always-free-autonomous-database/)
 
 ## Acknowledgements
 
 * **Author** - Rick Houlihan
 * **Contributors** - Oracle JSON Development Team, Oracle LiveLabs Team
-* **Last Updated By/Date** - Rick Houlihan, November 2024
+* **Last Updated By/Date** - Rick Houlihan, November 2025
